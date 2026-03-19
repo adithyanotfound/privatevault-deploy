@@ -1,0 +1,9 @@
+apiVersion: lork.dev/v1
+kind: Agent
+
+metadata:
+  name: finance_agent
+
+spec:
+  tenant_id: acme-corp
+  description: Finance automation agent

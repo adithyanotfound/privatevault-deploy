@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.log
+*.zip
+*.bak
+*.svg
+*.dot
+*.pkl
+*.pth
+node_modules/
+.env

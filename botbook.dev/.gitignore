@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+dist/
+build/
+*.egg-info
+
+# BotBook runtime
+memory/
+.env
+__pycache__/
+*.pyc
+
+# API keys
+.env
+
+# BotBook runtime data
+memory/
+__pycache__/
+*.pyc
+.env

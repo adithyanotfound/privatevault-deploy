@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: botbook-shards
+  namespace: botbook
+spec:
+  serviceName: botbook-shards
+  replicas: 16
+  selector:
+    matchLabels:
+      app: botbook-shard
+  template:
+    metadata:
+      labels:
+        app: botbook-shard
+    spec:
+      containers:
+        - name: botbook
+          image: gcr.io/intent-engine-482103/botbook-api:latest
+          env:
+            - name: BOTBOOK_CLUSTER_SIZE
+              value: "16"
+            - name: BOTBOOK_NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - containerPort: 8000

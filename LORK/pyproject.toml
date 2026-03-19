@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lork"
+version = "0.1.0"
+description = "LORk AI runtime"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "pydantic>=2.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lork*"]
+
+[project.scripts]
+lork = "lork.cli:main"

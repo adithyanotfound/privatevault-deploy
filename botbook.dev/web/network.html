@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>BotBook Agent Network</title>
+
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+<style>
+body {
+  font-family: Arial;
+  background: #0b0f19;
+  color: white;
+}
+
+#network {
+  width: 100%;
+  height: 90vh;
+  border: 1px solid #333;
+}
+
+.panel {
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  background: #111;
+  padding: 15px;
+  border-radius: 6px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>BotBook Agent Network</h2>
+
+<div id="network"></div>
+
+<div class="panel">
+Selected agent:
+<div id="selected"></div>
+</div>
+
+<script>
+
+let selectedAgent = null
+
+async function loadGraph() {
+
+  const res = await fetch("/graph")
+  const data = await res.json()
+
+  const nodes = new vis.DataSet(
+    data.nodes.map(n => ({
+      id: n,
+      label: n,
+      color: "#00d1ff"
+    }))
+  )
+
+  const edges = new vis.DataSet(
+    data.edges.map(e => ({
+      from: e.source,
+      to: e.target,
+      label: e.task
+    }))
+  )
+
+  const container = document.getElementById("network")
+
+  const network = new vis.Network(
+    container,
+    {nodes:nodes, edges:edges},
+    {}
+  )
+
+  network.on("click", function(params) {
+
+    if (params.nodes.length > 0) {
+      selectedAgent = params.nodes[0]
+      document.getElementById("selected").innerText = selectedAgent
+    }
+
+  })
+
+  network.on("oncontext", function(params) {
+
+    params.event.preventDefault()
+
+    if (!selectedAgent) return
+
+    const target = network.getNodeAt(params.pointer.DOM)
+
+    if (!target) return
+
+    fetch(
+      "/agents/collaborate?agent_a=" + selectedAgent +
+      "&agent_b=" + target +
+      "&task=demo-task",
+      {method:"POST"}
+    )
+    .then(()=>location.reload())
+
+  })
+
+}
+
+loadGraph()
+
+setInterval(loadGraph, 3000)
+
+</script>
+
+</body>
+</html>

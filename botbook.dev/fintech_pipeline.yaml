@@ -1,0 +1,16 @@
+agents:
+
+  research_agent:
+    depends_on: []
+
+  competitor_agent:
+    depends_on: []
+
+  sales_agent:
+    depends_on:
+      - research_agent
+      - competitor_agent
+
+  outreach_agent:
+    depends_on:
+      - sales_agent

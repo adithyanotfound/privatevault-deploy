@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "botbook"
+version = "0.1.0"
+description = "BotBook agent infrastructure platform"
+authors = [{name="BotBook"}]
+readme = "README.md"
+requires-python = ">=3.9"
+
+dependencies = [
+    "uvicorn",
+    "fastapi",
+    "fastapi",
+    "uvicorn",
+]
+
+[project.scripts]
+botbook = "botbook.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

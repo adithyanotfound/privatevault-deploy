@@ -1,0 +1,11 @@
+name: demo-workflow
+
+agents:
+  - name: planner
+    role: plan the task
+
+  - name: retriever
+    role: retrieve information
+
+  - name: writer
+    role: generate final answer

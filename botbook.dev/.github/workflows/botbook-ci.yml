@@ -1,0 +1,94 @@
+name: BotBook CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PROJECT_ID: intent-engine-482103
+  IMAGE: gcr.io/intent-engine-482103/botbook-api
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Type check
+        run: mypy botbook/ core/ api/ --ignore-missing-imports
+
+      - name: Test
+        run: pytest tests/ -v --tb=short
+
+
+  build-and-push:
+    name: Build & Push
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker
+
+      - name: Build image
+        run: |
+          docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+
+      - name: Push image
+        run: |
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+
+
+  deploy:
+    name: Deploy to GKE
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials botbook-cluster \
+            --region us-central1 \
+            --project $PROJECT_ID
+
+      - name: Deploy to GKE
+        run: |
+          kubectl set image deployment/botbook-api \
+            botbook-api=$IMAGE:${{ github.sha }} \
+            -n botbook
+
+          kubectl rollout status deployment/botbook-api -n botbook
+

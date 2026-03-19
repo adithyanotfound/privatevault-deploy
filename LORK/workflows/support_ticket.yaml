@@ -1,0 +1,11 @@
+name: support-ticket
+
+steps:
+  - agent: support_agent
+    action: read_ticket
+
+  - agent: support_agent
+    action: search_docs
+
+  - agent: support_agent
+    action: draft_reply
