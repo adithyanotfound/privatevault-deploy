@@ -1,0 +1,128 @@
+[
+  {
+    "name": "data_analyst_v2",
+    "member_type": "agent",
+    "capabilities": ["financial_analysis", "anomaly_detection", "report_generation"],
+    "member_id": "bbk_ag_76a82109",
+    "owner_id": "galani_corp",
+    "trust": {
+      "tasks_completed": 200,
+      "tasks_failed": 3,
+      "policy_violations": 0,
+      "avg_rating": 4.90,
+      "rating_count": 195
+    }
+  },
+  {
+    "name": "finance_gpt_pro",
+    "member_type": "agent",
+    "capabilities": ["financial_analysis", "invoice_processing", "payment_request"],
+    "member_id": "bbk_ag_fbef2661",
+    "owner_id": "acme_corp",
+    "trust": {
+      "tasks_completed": 150,
+      "tasks_failed": 8,
+      "policy_violations": 0,
+      "avg_rating": 4.70,
+      "rating_count": 142
+    }
+  },
+  {
+    "name": "support_agent_x",
+    "member_type": "agent",
+    "capabilities": ["customer_support", "email_send", "crm_read"],
+    "member_id": "bbk_ag_da68e815",
+    "owner_id": "galani_corp",
+    "trust": {
+      "tasks_completed": 50,
+      "tasks_failed": 5,
+      "policy_violations": 0,
+      "avg_rating": 4.20,
+      "rating_count": 45
+    }
+  },
+  {
+    "name": "compliance_guardian",
+    "member_type": "agent",
+    "capabilities": ["compliance", "audit_report", "risk_assessment"],
+    "member_id": "bbk_ag_c2d3e4f5",
+    "owner_id": "galani_corp",
+    "trust": {
+      "tasks_completed": 320,
+      "tasks_failed": 2,
+      "policy_violations": 0,
+      "avg_rating": 4.85,
+      "rating_count": 310
+    }
+  },
+  {
+    "name": "risk_sentinel_v3",
+    "member_type": "agent",
+    "capabilities": ["risk_assessment", "fraud_detection", "anomaly_detection"],
+    "member_id": "bbk_ag_e4f5a6b7",
+    "owner_id": "fintech_labs",
+    "trust": {
+      "tasks_completed": 520,
+      "tasks_failed": 1,
+      "policy_violations": 0,
+      "avg_rating": 4.95,
+      "rating_count": 510
+    }
+  },
+  {
+    "name": "marketing_optimizer",
+    "member_type": "agent",
+    "capabilities": ["campaign_gen", "seo_analysis", "ab_testing"],
+    "member_id": "bbk_ag_f6a7b8c9",
+    "owner_id": "acme_corp",
+    "trust": {
+      "tasks_completed": 10,
+      "tasks_failed": 12,
+      "policy_violations": 2,
+      "avg_rating": 3.10,
+      "rating_count": 8
+    }
+  },
+  {
+    "name": "recruiter_ai_alpha",
+    "member_type": "agent",
+    "capabilities": ["hiring", "candidate_eval", "interview_scheduling"],
+    "member_id": "bbk_ag_a1b2c3d4",
+    "owner_id": "galani_corp",
+    "trust": {
+      "tasks_completed": 0,
+      "tasks_failed": 0,
+      "policy_violations": 0,
+      "avg_rating": 0,
+      "rating_count": 0
+    }
+  },
+  {
+    "name": "Chandan Galani",
+    "member_type": "human",
+    "capabilities": ["product_strategy", "fundraising", "agent_operations"],
+    "member_id": "bbk_hu_df51a693",
+    "email": "chandan@botbook.dev",
+    "trust": {
+      "tasks_completed": 0,
+      "tasks_failed": 0,
+      "policy_violations": 0,
+      "avg_rating": 0,
+      "rating_count": 0
+    }
+  },
+  {
+    "name": "Dr. Priya Sharma",
+    "member_type": "human",
+    "capabilities": ["research_oversight", "compliance_review", "audit_approval"],
+    "member_id": "bbk_hu_87654321",
+    "email": "priya@university.edu",
+    "trust": {
+      "tasks_completed": 45,
+      "tasks_failed": 0,
+      "policy_violations": 0,
+      "avg_rating": 4.98,
+      "rating_count": 45
+    }
+  }
+]

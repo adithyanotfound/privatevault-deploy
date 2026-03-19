@@ -1,0 +1,96 @@
+[
+  {
+    "id": "drift_001",
+    "name": "Loan Amount Inflation",
+    "risk_level": "CRITICAL",
+    "declared": {
+      "action": "approve_loan",
+      "amount": 250000,
+      "recipient": "business_acme"
+    },
+    "actual": {
+      "action": "approve_loan",
+      "amount": 2500000,
+      "recipient": "business_acme",
+      "bypass_approval": true
+    },
+    "expected_drifts": [
+      {"field": "amount", "type": "MAGNITUDE_INFLATION", "delta_percent": 900},
+      {"field": "bypass_approval", "type": "UNAUTHORIZED_FIELD"}
+    ]
+  },
+  {
+    "id": "drift_002",
+    "name": "Recipient Swap Attack",
+    "risk_level": "HIGH",
+    "declared": {
+      "action": "transfer",
+      "amount": 5000,
+      "recipient": "vendor_acme_corp"
+    },
+    "actual": {
+      "action": "transfer",
+      "amount": 5000,
+      "recipient": "offshore_account_zz9"
+    },
+    "expected_drifts": [
+      {"field": "recipient", "type": "VALUE_CHANGE"}
+    ]
+  },
+  {
+    "id": "drift_003",
+    "name": "Action Type Mutation",
+    "risk_level": "HIGH",
+    "declared": {
+      "action": "query_balance",
+      "amount": 0,
+      "recipient": "internal_account"
+    },
+    "actual": {
+      "action": "transfer",
+      "amount": 9500,
+      "recipient": "external_wallet"
+    },
+    "expected_drifts": [
+      {"field": "action", "type": "VALUE_CHANGE"},
+      {"field": "amount", "type": "MAGNITUDE_INFLATION"},
+      {"field": "recipient", "type": "VALUE_CHANGE"}
+    ]
+  },
+  {
+    "id": "drift_004",
+    "name": "Subtle Data Exfiltration",
+    "risk_level": "MEDIUM",
+    "declared": {
+      "action": "read_customer_data",
+      "scope": "single_record",
+      "customer_id": "C-4521"
+    },
+    "actual": {
+      "action": "read_customer_data",
+      "scope": "all_records",
+      "customer_id": "C-4521",
+      "export_format": "csv"
+    },
+    "expected_drifts": [
+      {"field": "scope", "type": "VALUE_CHANGE"},
+      {"field": "export_format", "type": "UNAUTHORIZED_FIELD"}
+    ]
+  },
+  {
+    "id": "drift_005",
+    "name": "No Drift — Clean Transaction",
+    "risk_level": "LOW",
+    "declared": {
+      "action": "transfer",
+      "amount": 3000,
+      "recipient": "vendor_acme_corp"
+    },
+    "actual": {
+      "action": "transfer",
+      "amount": 3000,
+      "recipient": "vendor_acme_corp"
+    },
+    "expected_drifts": []
+  }
+]
