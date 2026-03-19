@@ -230,6 +230,9 @@ class LLMExecutor:
         if self._provider == "openai":
             return await self._call_openai(messages)
 
+        if self._provider == "gemini":
+            return await self._call_gemini(messages)
+
         raise ExecutionError(f"Unknown LLM provider: {self._provider}")
 
     async def _call_anthropic(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
@@ -300,6 +303,44 @@ class LLMExecutor:
             "content": content,
             "stop_reason": "tool_use" if choice.message.tool_calls else "end_turn",
             "usage": {"total_tokens": response.usage.total_tokens if response.usage else 0},
+        }
+
+    async def _call_gemini(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
+        from google import genai
+        from google.genai import types
+        
+        client = genai.Client(api_key=self._settings.GEMINI_API_KEY)
+        
+        gemini_messages = []
+        for msg in messages:
+            role = "user" if msg["role"] == "user" else "model"
+            content = msg["content"]
+            if isinstance(content, list):
+                text = ""
+                for part in content:
+                    if isinstance(part, dict):
+                        if part.get("type") == "text":
+                            text += part.get("text", "")
+                    elif isinstance(part, str):
+                        text += part
+                gemini_messages.append({"role": role, "parts": [{"text": text}]})
+            else:
+                gemini_messages.append({"role": role, "parts": [{"text": str(content)}]})
+                
+        config_kwargs = {}
+        if self._system_prompt:
+            config_kwargs["system_instruction"] = self._system_prompt
+
+        response = await client.aio.models.generate_content(
+            model=self._model or self._settings.GEMINI_MODEL,
+            contents=gemini_messages,
+            config=types.GenerateContentConfig(**config_kwargs)
+        )
+        
+        return {
+            "content": [{"type": "text", "text": response.text}],
+            "stop_reason": "end_turn",
+            "usage": {"total_tokens": response.usage_metadata.total_token_count if response.usage_metadata else 0},
         }
 
     @staticmethod

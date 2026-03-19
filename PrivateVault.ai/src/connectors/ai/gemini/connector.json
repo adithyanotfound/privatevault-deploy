@@ -1,0 +1,28 @@
+{
+  "id": "pv.ai.gemini",
+  "name": "Gemini Connector",
+  "version": "1.0.0",
+  "domain": "ai",
+  "publisher": "PrivateVault",
+  "entrypoint": "connectors/ai/gemini/connector.py",
+  "capabilities": [
+    {
+      "action": "model_invoke",
+      "schema": "schemas/model_invoke.json",
+      "quorum_policy": "AI_SENSITIVE",
+      "idempotency": true
+    }
+  ],
+  "auth": {
+    "type": "vault",
+    "scopes": ["ai:invoke"]
+  },
+  "audit": {
+    "required": true,
+    "events": ["request", "decision", "execution", "error"]
+  },
+  "signing": {
+    "required": true,
+    "publisher_key_id": "pv-key-001"
+  }
+}

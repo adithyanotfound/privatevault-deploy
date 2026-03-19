@@ -1,5 +1,9 @@
+import os
 import subprocess
 import sys
+
+# Ensure current working directory is in module path for agent imports
+sys.path.insert(0, os.getcwd())
 
 from botbook.agent_scaffold import create_agent
 from botbook.runtime.executor import run as run_agent
@@ -26,7 +30,7 @@ def make():
 def run():
     agent=sys.argv[2]
     task=" ".join(sys.argv[3:])
-    run_agent(agent,task)
+    run_agent(agent, {"task": task, "data": ""})
 
 def workflow():
     file=sys.argv[2]
