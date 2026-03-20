@@ -113,6 +113,8 @@ def enrich_agent(agent_data: dict) -> dict:
         "name": name,
         "member_type": agent_data.get("member_type", "agent"),
         "capabilities": agent_data.get("capabilities", []),
+        "version": agent_data.get("version", "1.0.0"),
+        "description": agent_data.get("description", ""),
         "trust_score": trust_score,
         "badge": badge,
         "tasks_completed": trust_data.get("tasks_completed", 0),
@@ -125,6 +127,7 @@ def enrich_agent(agent_data: dict) -> dict:
         "vault_id": vault_id,
         "owner_id": agent_data.get("owner_id"),
         "email": agent_data.get("email"),
+        "registered_at": agent_data.get("registered_at", time.strftime("%Y-%m-%dT%H:%M:%SZ")),
         "discovery_url": f"https://botbook.dev/members/{member_id}",
     }
 
@@ -231,20 +234,102 @@ class MatchRequest(BaseModel):
     min_trust_score: float = 0.0
     max_results: int = 5
 
+# --- CAPABILITY-TO-KEYWORD MAP (for NLP task matching) ---
+CAPABILITY_KEYWORDS = {
+    "financial_analysis": ["revenue","finance","profit","loss","budget","forecast","earnings","quarter","q1","q2","q3","q4","growth","margin","expense","income","financial"],
+    "anomaly_detection": ["anomaly","anomalies","unusual","spike","outlier","suspicious","fraud","irregular"],
+    "report_generation": ["report","summary","document","generate","create report","board report","presentation"],
+    "data_query": ["query","database","data","search","lookup","find","records","fetch","analyze"],
+    "trend_analysis": ["trend","pattern","historical","comparison","growth","forecast","predict"],
+    "compliance": ["compliance","audit","regulatory","regulation","sox","soc2","gdpr","policy","legal","violation"],
+    "audit_report": ["audit","trail","log","review","inspection","check","verify"],
+    "risk_assessment": ["risk","assess","threat","vulnerability","exposure","evaluate","danger"],
+    "invoice_processing": ["invoice","bill","payment","pay","process","settle","accounts payable"],
+    "payment_request": ["pay","transfer","send money","wire","remittance","settlement"],
+    "customer_support": ["support","customer","help","ticket","issue","resolve","complaint","service"],
+    "email_send": ["email","send","notify","notification","message","alert"],
+    "crm_read": ["crm","customer data","account","contact","leads"],
+    "crm_write": ["update crm","crm write","update customer","modify account"],
+    "lead_scoring": ["lead","score","prospect","qualify","sales pipeline","opportunity"],
+    "pipeline_management": ["pipeline","deal","sales","funnel","opportunity","close"],
+    "deal_analysis": ["deal","negotiation","pricing","proposal","contract value"],
+    "fraud_detection": ["fraud","scam","suspicious","laundering","identity theft"],
+    "transaction_monitoring": ["transaction","monitor","real-time","watch","track","live"],
+    "contract_review": ["contract","agreement","terms","clause","legal review","nda"],
+    "regulatory_check": ["regulatory","regulation","rule","law","statute","standard"],
+    "document_generation": ["document","generate","template","create","pdf","letter"],
+    "workflow_automation": ["workflow","automate","automation","process","orchestrate"],
+    "infrastructure_monitoring": ["server","infrastructure","cpu","memory","uptime","deployment"],
+    "incident_response": ["incident","outage","alert","pagerduty","on-call","downtime"],
+    "log_analysis": ["log","trace","debug","stack trace","error log"],
+}
+
+def score_agent_for_task(agent: dict, task: str, required_caps: list) -> dict:
+    """Score an agent for a task using capability matching + trust + NLP keywords.
+    This simulates production-grade agent selection with multiple ranking factors."""
+    task_lower = task.lower()
+    caps = agent.get("capabilities", [])
+
+    # Factor 1: Explicit capability match (0-1)
+    if required_caps:
+        cap_overlap = sum(1 for c in required_caps if c in caps)
+        cap_score = cap_overlap / max(len(required_caps), 1)
+    else:
+        cap_score = 0.0
+
+    # Factor 2: NLP keyword relevance (0-1)
+    keyword_hits = 0
+    keyword_total = 0
+    for cap in caps:
+        keywords = CAPABILITY_KEYWORDS.get(cap, [])
+        for kw in keywords:
+            keyword_total += 1
+            if kw in task_lower:
+                keyword_hits += 1
+    nlp_score = keyword_hits / max(keyword_total, 1)
+
+    # Factor 3: Trust score (already 0-1)
+    trust_score = agent.get("trust_score", 0.0)
+
+    # Factor 4: Experience (tasks completed, normalized)
+    experience = min(1.0, agent.get("tasks_completed", 0) / 500)
+
+    # Factor 5: Reliability (low failure rate)
+    total = agent.get("tasks_completed", 0) + agent.get("tasks_failed", 0)
+    reliability = agent.get("tasks_completed", 0) / max(total, 1) if total > 0 else 0.5
+
+    # Weighted composite score
+    composite = (
+        cap_score * 0.25 +       # 25% explicit capability match
+        nlp_score * 0.30 +       # 30% NLP keyword relevance
+        trust_score * 0.20 +     # 20% trust score
+        experience * 0.15 +      # 15% experience
+        reliability * 0.10       # 10% reliability
+    )
+
+    return {
+        **agent,
+        "match_score": round(composite, 4),
+        "match_breakdown": {
+            "capability_match": round(cap_score, 3),
+            "nlp_relevance": round(nlp_score, 3),
+            "trust": round(trust_score, 3),
+            "experience": round(experience, 3),
+            "reliability": round(reliability, 3),
+        },
+        "keyword_hits": keyword_hits,
+    }
+
 @app.post("/api/v1/match")
 async def match_agents(request: MatchRequest):
-    """Find best agents for a task by capability + trust score"""
-    matches = [
-        a for a in agents_store
-        if a["member_type"] == "agent"
-        and a["trust_score"] >= request.min_trust_score
-        and (
-            len(request.required_capabilities) == 0
-            or any(c in a["capabilities"] for c in request.required_capabilities)
-        )
-    ]
-    matches.sort(key=lambda a: a["trust_score"], reverse=True)
-    return matches[:request.max_results]
+    """Production-grade agent matching: NLP keyword analysis + trust + capability overlap."""
+    candidates = [a for a in agents_store if a["member_type"] == "agent" and a["trust_score"] >= request.min_trust_score]
+    scored = [score_agent_for_task(a, request.task, request.required_capabilities) for a in candidates]
+    scored.sort(key=lambda a: a["match_score"], reverse=True)
+    print(f"\n🎯 [BotBook] Agent Match for: '{request.task[:60]}...'")
+    for i, s in enumerate(scored[:5]):
+        print(f"   #{i+1} {s['name']} — score: {s['match_score']} (nlp: {s['match_breakdown']['nlp_relevance']}, trust: {s['match_breakdown']['trust']})")
+    return scored[:request.max_results]
 
 @app.get("/api/v1/trust_breakdown/{member_id}")
 async def trust_breakdown(member_id: str):
@@ -408,6 +493,7 @@ async def execute_live(request: ExecuteRequest):
     orch = LiveOrchestrator(
         vault_url="http://localhost:8000",
         lork_url="http://localhost:8002",
+        botbook_url="http://localhost:8001",
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )
@@ -423,6 +509,7 @@ async def execute_pipeline(request: PipelineRequest):
     orch = LiveOrchestrator(
         vault_url="http://localhost:8000",
         lork_url="http://localhost:8002",
+        botbook_url="http://localhost:8001",
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )

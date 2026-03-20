@@ -1,6 +1,6 @@
 """
 LiveOrchestrator — Chains BotBook + PrivateVault + Gemini + LORK in real-time.
-Streams Server-Sent Events to the frontend for every step.
+Streams SSE to frontend. Now with auto-selection + multi-step ReAct.
 """
 import json, time, uuid, re, os, asyncio
 from typing import AsyncGenerator
@@ -26,23 +26,24 @@ TOOL_DECLARATIONS = [
 ]
 
 TOOL_POLICIES = {
-    "query_database":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro"]},
-    "search_records":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","support_agent_x","finance_gpt_pro"]},
-    "generate_report":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro"]},
+    "query_database":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","risk_sentinel_v3","legal_reviewer_v2"]},
+    "search_records":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","support_agent_x","finance_gpt_pro","risk_sentinel_v3","sales_accelerator"]},
+    "generate_report":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","legal_reviewer_v2"]},
     "send_notification":{"allowed_agents":["support_agent_x","sales_accelerator","onboarding_bot"],"block_external":True},
 }
 
 MOCK_TOOL_RESULTS = {
     "query_database":{"status":"success","rows_returned":847,"data":{"q3_revenue":"$5.17M","q2_revenue":"$4.2M","growth_rate":"23.1%","enterprise_deals":12,"top_segments":["Enterprise SaaS ($2.8M)","SMB Subscriptions ($1.4M)","API Revenue ($970K)"],"anomalies":[{"month":"September","category":"Marketing","spike":"+67%","amount":"$340K"}]},"query_time_ms":45},
-    "search_records":{"status":"success","results_count":23,"records":[{"id":"TXN-4521","type":"subscription","amount":"$2,400/mo","customer":"Acme Corp"},{"id":"TXN-4522","type":"enterprise_deal","amount":"$180,000/yr","customer":"TechGiant Inc"}]},
+    "search_records":{"status":"success","results_count":23,"records":[{"id":"TXN-4521","type":"subscription","amount":"$2,400/mo","customer":"Acme Corp"},{"id":"TXN-4522","type":"enterprise_deal","amount":"$180,000/yr","customer":"TechGiant Inc"},{"id":"TXN-4523","type":"api_usage","amount":"$3,200/mo","customer":"DataFlow Labs"}]},
     "generate_report":{"status":"success","pages":12,"format":"PDF","sections_generated":["Executive Summary","Revenue Breakdown","Growth Projections","Risk Factors"]},
     "send_notification":{"status":"sent","delivered":True},
 }
 
 class LiveOrchestrator:
-    def __init__(self, vault_url, lork_url, agents_store, gemini_key):
+    def __init__(self, vault_url, lork_url, botbook_url, agents_store, gemini_key):
         self.vault_url = vault_url
         self.lork_url = lork_url
+        self.botbook_url = botbook_url
         self.agents = agents_store
         self.gemini_key = gemini_key
 
@@ -55,10 +56,11 @@ class LiveOrchestrator:
         t = task.lower()
         amounts = re.findall(r'\$?([\d,]+(?:\.\d+)?)', task)
         amount = float(amounts[0].replace(',','')) if amounts else 0
-        if any(w in t for w in ["transfer","send money","wire","pay "]):
+        if any(w in t for w in ["transfer","send money","wire"]):
+            action = "transfer"
+        elif "pay " in t and "galanipay" not in t:
             action = "transfer"
         elif "invoice" in t: action = "pay_invoice"
-        elif any(w in t for w in ["balance","query_balance"]): action = "query_balance"
         else: action = "query_balance"
         recipient = "internal_analytics"
         if "anonymous" in t or "anon" in t: recipient = "anonymous_wallet"
@@ -66,6 +68,17 @@ class LiveOrchestrator:
         elif "vendor" in t or "acme" in t: recipient = "vendor_acme_corp"
         elif "personal" in t or "@gmail" in t or "external" in t: recipient = "external_personal"
         return {"action":action,"amount":amount,"recipient":recipient,"agent_id":"agent"}
+
+    async def auto_select_agent(self, http, task):
+        """Call BotBook's /match endpoint to intelligently select the best agent."""
+        try:
+            resp = await http.post(f"{self.botbook_url}/api/v1/match", json={"task": task, "max_results": 5})
+            matches = resp.json()
+            if matches and len(matches) > 0:
+                return matches  # Return all ranked matches
+        except Exception as e:
+            print(f"   ⚠️ Auto-select failed: {e}")
+        return []
 
     async def execute_stream(self, task, agent_name):
         run_id = f"live-{uuid.uuid4().hex[:8]}"
@@ -77,16 +90,38 @@ class LiveOrchestrator:
         print(f"   Task: {task[:80]}...")
         print(f"   Gemini Key: {'✅ set' if self.gemini_key else '❌ MISSING'}")
         print(f"{'='*60}")
-        async with httpx.AsyncClient(timeout=30.0) as http:
-            # STEP 1: Agent Selection (BotBook)
+        async with httpx.AsyncClient(timeout=60.0) as http:
+
+            # STEP 0: Auto-select if requested
+            if agent_name == "auto":
+                yield sse("auto_select_start", {"task": task[:100], "layer": "BotBook"})
+                matches = await self.auto_select_agent(http, task)
+                if not matches:
+                    yield sse("error", {"message": "No suitable agents found"})
+                    return
+                # Emit all candidates
+                yield sse("auto_select_result", {
+                    "candidates": [{"name": m["name"], "score": m.get("match_score",0), "trust": m.get("trust_score",0), "breakdown": m.get("match_breakdown",{})} for m in matches[:5]],
+                    "selected": matches[0]["name"],
+                    "layer": "BotBook",
+                })
+                events_log.append({"seq":len(events_log)+1,"type":"auto_select","agent":"BotBook","latency_ms":0,"tokens":0,"payload":f"Auto-selected {matches[0]['name']} (score: {matches[0].get('match_score',0)})"})
+                agent_name = matches[0]["name"]
+                # Update local store reference
+                for a in self.agents:
+                    if a["name"] == agent_name:
+                        break
+                await asyncio.sleep(0.4)
+
+            # STEP 1: Agent Selection
             agent = self.find_agent(agent_name)
             if not agent:
                 print(f"   ❌ Agent '{agent_name}' not found!")
-                yield sse("error",{"message":f"Agent '{agent_name}' not found"})
+                yield sse("error",{"message":f"Agent '{agent_name}' not found in registry"})
                 return
-            print(f"   ✅ Agent selected: {agent['name']} (trust: {agent['trust_score']})")
-            yield sse("agent_selected",{"agent":agent["name"],"trust_score":agent["trust_score"],"badge":agent["badge"],"capabilities":agent.get("capabilities",[]),"member_id":agent.get("member_id",""),"layer":"BotBook"})
-            events_log.append({"seq":len(events_log)+1,"type":"agent_selected","agent":agent["name"],"latency_ms":0,"tokens":0,"payload":f"Selected {agent['name']} (trust: {agent['trust_score']})"})
+            print(f"   ✅ Agent selected: {agent['name']} (trust: {agent['trust_score']}, v{agent.get('version','?')})")
+            yield sse("agent_selected",{"agent":agent["name"],"trust_score":agent["trust_score"],"badge":agent["badge"],"capabilities":agent.get("capabilities",[]),"member_id":agent.get("member_id",""),"version":agent.get("version","1.0.0"),"description":agent.get("description",""),"layer":"BotBook"})
+            events_log.append({"seq":len(events_log)+1,"type":"agent_selected","agent":agent["name"],"latency_ms":0,"tokens":0,"payload":f"Selected {agent['name']} v{agent.get('version','?')} (trust: {agent['trust_score']})"})
             await asyncio.sleep(0.4)
 
             # STEP 2: Intent Classification
@@ -118,44 +153,73 @@ class LiveOrchestrator:
                 yield sse("complete",{"status":"BLOCKED","reason":gov_result["reason"],"total_time_ms":round((time.time()-start_time)*1000),"run_id":run_id,"events_count":len(events_log)})
                 return
 
-            # STEP 4: Gemini LLM Call
-            yield sse("llm_start",{"provider":"Gemini","model":"gemini-2.5-flash","task_preview":task[:100],"layer":"Gemini"})
-            llm_start = time.time()
-            llm_result = await self._call_gemini(task,agent)
-            llm_ms = round((time.time()-llm_start)*1000)
-            print(f"   ✨ Gemini: {llm_result.get('tokens',0)} tokens, {llm_ms}ms, {len(llm_result.get('tool_calls',[]))} tool calls")
-            print(f"   📝 Response: {llm_result['text'][:100]}...")
-            yield sse("llm_response",{"text":llm_result["text"][:600],"tokens":llm_result.get("tokens",0),"latency_ms":llm_ms,"has_tool_calls":len(llm_result.get("tool_calls",[]))>0,"tool_calls_count":len(llm_result.get("tool_calls",[])),"layer":"Gemini"})
-            events_log.append({"seq":len(events_log)+1,"type":"llm_call","agent":agent["name"],"latency_ms":llm_ms,"tokens":llm_result.get("tokens",0),"payload":f"Gemini: {llm_result['text'][:80]}..."})
-            await asyncio.sleep(0.3)
+            # STEP 4: ReAct Loop — Gemini → tools → feed back → final answer
+            total_tokens = 0
+            react_step = 0
+            max_react_steps = 3
+            conversation = [task]  # Start with the original task
 
-            # STEP 5: Tool Calls + Policy Gating
-            for tc in llm_result.get("tool_calls",[]):
-                tool_name = tc["name"]
-                tool_input = tc.get("input",{})
-                yield sse("tool_request",{"tool":tool_name,"input":tool_input,"layer":"LORK"})
-                events_log.append({"seq":len(events_log)+1,"type":"tool_call","agent":agent["name"],"latency_ms":0,"tokens":0,"tool":tool_name,"input":json.dumps(tool_input)[:100],"payload":f"Tool request: {tool_name}"})
-                await asyncio.sleep(0.4)
-                policy = await self._policy_gate_tool(http,agent,tool_name,tool_input)
-                print(f"   🛡️ Tool policy: {tool_name} → {policy['decision']} ({policy['reason']})")
-                yield sse("policy_gate",{"tool":tool_name,"decision":policy["decision"],"reason":policy["reason"],"layer":"PrivateVault"})
-                events_log.append({"seq":len(events_log)+1,"type":"policy_gate","agent":"PrivateVault","latency_ms":3,"tokens":0,"payload":f"Tool {tool_name}: {policy['decision']}"})
+            while react_step < max_react_steps:
+                react_step += 1
+                current_prompt = conversation[-1] if len(conversation) == 1 else f"Original task: {task}\n\nPrevious tool results:\n{conversation[-1]}\n\nBased on these results, provide your final analysis. Do NOT call any more tools."
+
+                yield sse("llm_start",{"provider":"Gemini","model":"gemini-2.5-flash","task_preview":current_prompt[:100],"react_step":react_step,"layer":"Gemini"})
+                llm_start = time.time()
+                llm_result = await self._call_gemini(current_prompt, agent, force_text=(react_step > 1))
+                llm_ms = round((time.time()-llm_start)*1000)
+                total_tokens += llm_result.get("tokens",0)
+                print(f"   ✨ Gemini step {react_step}: {llm_result.get('tokens',0)} tokens, {llm_ms}ms, {len(llm_result.get('tool_calls',[]))} tool calls")
+                print(f"   📝 Response: {llm_result['text'][:100]}...")
+
+                yield sse("llm_response",{"text":llm_result["text"][:600],"tokens":llm_result.get("tokens",0),"latency_ms":llm_ms,"has_tool_calls":len(llm_result.get("tool_calls",[]))>0,"tool_calls_count":len(llm_result.get("tool_calls",[])),"react_step":react_step,"layer":"Gemini"})
+                events_log.append({"seq":len(events_log)+1,"type":"llm_call","agent":agent["name"],"latency_ms":llm_ms,"tokens":llm_result.get("tokens",0),"payload":f"ReAct step {react_step}: {llm_result['text'][:60]}..."})
                 await asyncio.sleep(0.3)
-                if policy["decision"] == "ALLOW":
-                    tr = self._execute_tool(tool_name,tool_input)
-                    yield sse("tool_result",{"tool":tool_name,"output":tr,"layer":"LORK"})
-                    events_log.append({"seq":len(events_log)+1,"type":"tool_result","agent":agent["name"],"latency_ms":45,"tokens":0,"payload":f"Tool {tool_name} executed"})
-                else:
-                    yield sse("tool_blocked",{"tool":tool_name,"reason":policy["reason"],"layer":"PrivateVault"})
-                    events_log.append({"seq":len(events_log)+1,"type":"tool_blocked","agent":"PrivateVault","latency_ms":0,"tokens":0,"payload":f"BLOCKED: {tool_name}"})
-                await asyncio.sleep(0.2)
 
-            # STEP 6: Record in LORK
+                # If no tool calls or we have text, we're done
+                if not llm_result.get("tool_calls") or react_step >= max_react_steps:
+                    break
+
+                # Process tool calls
+                tool_results_text = []
+                for tc in llm_result.get("tool_calls",[]):
+                    tool_name = tc["name"]
+                    tool_input = tc.get("input",{})
+                    yield sse("tool_request",{"tool":tool_name,"input":tool_input,"react_step":react_step,"layer":"LORK"})
+                    events_log.append({"seq":len(events_log)+1,"type":"tool_call","agent":agent["name"],"latency_ms":0,"tokens":0,"tool":tool_name,"payload":f"Tool: {tool_name}"})
+                    await asyncio.sleep(0.4)
+
+                    # Policy gate
+                    policy = await self._policy_gate_tool(http,agent,tool_name,tool_input)
+                    print(f"   🛡️ Tool policy: {tool_name} → {policy['decision']}")
+                    yield sse("policy_gate",{"tool":tool_name,"decision":policy["decision"],"reason":policy["reason"],"layer":"PrivateVault"})
+                    events_log.append({"seq":len(events_log)+1,"type":"policy_gate","agent":"PrivateVault","latency_ms":3,"tokens":0,"payload":f"Tool {tool_name}: {policy['decision']}"})
+                    await asyncio.sleep(0.3)
+
+                    if policy["decision"] == "ALLOW":
+                        tr = self._execute_tool(tool_name,tool_input)
+                        yield sse("tool_result",{"tool":tool_name,"output":tr,"layer":"LORK"})
+                        events_log.append({"seq":len(events_log)+1,"type":"tool_result","agent":agent["name"],"latency_ms":45,"tokens":0,"payload":f"Tool {tool_name} executed"})
+                        tool_results_text.append(f"Tool '{tool_name}' returned: {json.dumps(tr)[:300]}")
+                    else:
+                        yield sse("tool_blocked",{"tool":tool_name,"reason":policy["reason"],"layer":"PrivateVault"})
+                        events_log.append({"seq":len(events_log)+1,"type":"tool_blocked","agent":"PrivateVault","latency_ms":0,"tokens":0,"payload":f"BLOCKED: {tool_name}"})
+                        tool_results_text.append(f"Tool '{tool_name}' was BLOCKED by governance: {policy['reason']}")
+                    await asyncio.sleep(0.2)
+
+                # Feed tool results back to Gemini for next iteration
+                if tool_results_text:
+                    conversation.append("\n".join(tool_results_text))
+                    yield sse("react_continue",{"step":react_step+1,"reason":"Feeding tool results back to LLM for synthesis","layer":"Gemini"})
+                    await asyncio.sleep(0.3)
+                else:
+                    break
+
+            # STEP 5: Record in LORK
             await self._record_run(http,run_id,agent["name"],task,events_log,"completed")
             yield sse("event_recorded",{"run_id":run_id,"events_count":len(events_log),"status":"completed","layer":"LORK"})
             await asyncio.sleep(0.3)
 
-            # STEP 7: Update Trust (BotBook)
+            # STEP 6: Update Trust
             old_score = agent["trust_score"]
             new_score = round(min(1.0, old_score + 0.002), 4)
             agent["trust_score"] = new_score
@@ -163,26 +227,35 @@ class LiveOrchestrator:
             yield sse("trust_updated",{"agent":agent["name"],"old_score":old_score,"new_score":new_score,"tasks_completed":agent["tasks_completed"],"layer":"BotBook"})
             await asyncio.sleep(0.2)
 
-            # STEP 8: Complete
+            # STEP 7: Complete
             total_ms = round((time.time()-start_time)*1000)
-            print(f"   ✅ COMPLETE: {total_ms}ms, {len(events_log)} events")
+            print(f"   ✅ COMPLETE: {total_ms}ms, {len(events_log)} events, {total_tokens} tokens")
             print(f"{'='*60}\n")
-            yield sse("complete",{"status":"SUCCESS","output":llm_result["text"][:400],"total_time_ms":total_ms,"total_tokens":llm_result.get("tokens",0),"run_id":run_id,"events_count":len(events_log)})
+            yield sse("complete",{"status":"SUCCESS","output":llm_result["text"][:400],"total_time_ms":total_ms,"total_tokens":total_tokens,"run_id":run_id,"events_count":len(events_log),"react_steps":react_step})
 
-    async def _call_gemini(self, task, agent):
+    async def _call_gemini(self, task, agent, force_text=False):
         if not GEMINI_AVAILABLE or not self.gemini_key:
             return {"text":"[Gemini unavailable - check google-genai and API key]","tokens":0,"tool_calls":[]}
         try:
             client = genai.Client(api_key=self.gemini_key)
-            system_prompt = f"You are '{agent['name']}', an enterprise AI agent on BotBook.\nCapabilities: {', '.join(agent.get('capabilities',[]))}\nTrust: {agent['trust_score']}, Badge: {agent['badge']}\nYou are governed by PrivateVault.ai. Respond concisely (under 150 words). Use tools when helpful."
+            system_prompt = f"You are '{agent['name']}' v{agent.get('version','?')}, an enterprise AI agent on BotBook.\nCapabilities: {', '.join(agent.get('capabilities',[]))}\nTrust: {agent['trust_score']}, Badge: {agent['badge']}\nYou are governed by PrivateVault.ai. Respond concisely (under 200 words). Use tools when helpful."
+            if force_text:
+                system_prompt += "\nIMPORTANT: Provide your final text analysis now. Do NOT request any tools."
+
             func_decls = []
-            for td in TOOL_DECLARATIONS:
-                props = {}
-                for pname, pinfo in td["parameters"]["properties"].items():
-                    props[pname] = genai_types.Schema(type=pinfo["type"], description=pinfo.get("description",""))
-                func_decls.append(genai_types.FunctionDeclaration(name=td["name"],description=td["description"],parameters=genai_types.Schema(type="OBJECT",properties=props,required=td["parameters"].get("required",[]))))
-            tools = [genai_types.Tool(function_declarations=func_decls)]
-            response = client.models.generate_content(model="gemini-2.5-flash",contents=task,config=genai_types.GenerateContentConfig(system_instruction=system_prompt,tools=tools,temperature=0.3))
+            if not force_text:
+                for td in TOOL_DECLARATIONS:
+                    props = {}
+                    for pname, pinfo in td["parameters"]["properties"].items():
+                        props[pname] = genai_types.Schema(type=pinfo["type"], description=pinfo.get("description",""))
+                    func_decls.append(genai_types.FunctionDeclaration(name=td["name"],description=td["description"],parameters=genai_types.Schema(type="OBJECT",properties=props,required=td["parameters"].get("required",[]))))
+
+            tools = [genai_types.Tool(function_declarations=func_decls)] if func_decls else None
+            config = genai_types.GenerateContentConfig(system_instruction=system_prompt, temperature=0.3)
+            if tools:
+                config = genai_types.GenerateContentConfig(system_instruction=system_prompt, tools=tools, temperature=0.3)
+
+            response = client.models.generate_content(model="gemini-2.5-flash", contents=task, config=config)
             text, tool_calls = "", []
             if response.candidates and response.candidates[0].content:
                 for part in response.candidates[0].content.parts:
