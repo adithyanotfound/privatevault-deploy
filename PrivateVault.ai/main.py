@@ -95,7 +95,8 @@ def check_policy(request: TransactionRequest) -> tuple[str, str]:
 
     # RULE 3: Action Whitelist
     valid_actions = ["transfer", "pay_invoice", "query_balance"]
-    if request.action not in valid_actions:
+    # Allow tool.* actions (governed tool calls from orchestrator)
+    if request.action not in valid_actions and not request.action.startswith("tool."):
         return "BLOCK", f"Action '{request.action}' is not in the approved capabilities list."
 
     # Otherwise, safe
@@ -111,7 +112,7 @@ def compute_risk_score(request: TransactionRequest) -> float:
         score += 0.3
     # Action factor
     valid_actions = ["transfer", "pay_invoice", "query_balance"]
-    if request.action not in valid_actions:
+    if request.action not in valid_actions and not request.action.startswith("tool."):
         score += 0.3
     return round(min(1.0, score), 3)
 
@@ -250,7 +251,10 @@ async def shadow_verify(request: TransactionRequest):
         "risk_score": risk_score
     }
     audit_entries.insert(0, entry)
-    print(f"[{timestamp}] TX:{tx_id} | AGENT:{request.agent_id} | AMT:{request.amount} | STATUS:{status}")
+    print(f"\n🔒 [PrivateVault] shadow_verify called")
+    print(f"   Agent: {request.agent_id} | Action: {request.action} | Amount: ${request.amount:,.0f} | Recipient: {request.recipient}")
+    print(f"   → {status}: {reason} (risk: {risk_score})")
+    print(f"   TxID: {tx_id[:12]}... | Merkle: {merkle_hash[:24]}...")
 
     return VerificationResponse(
         status=status,

@@ -240,6 +240,32 @@ async def fork_run(run_id: str, fork_at_seq: int = 1):
         "message": f"Run forked successfully. Use /api/v1/runs/{fork_id} to inspect."
     }
 
+@app.post("/api/v1/runs/record")
+async def record_run(run_data: dict):
+    """Record a new run from the live orchestrator."""
+    import uuid as _uuid
+    run_id = run_data.get("run_id", f"run-{_uuid.uuid4().hex[:8]}")
+    raw_events = run_data.get("events", [])
+    events = []
+    for i, e in enumerate(raw_events):
+        events.append({
+            "seq": e.get("seq", i+1), "type": e.get("type","unknown"),
+            "agent": e.get("agent","unknown"), "latency_ms": e.get("latency_ms",0),
+            "tokens": e.get("tokens",0), "payload": e.get("payload",""),
+            "tool": e.get("tool"), "input": e.get("input"),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        })
+    runs_store[run_id] = {
+        "name": run_data.get("name", run_id),
+        "description": run_data.get("description",""),
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "status": run_data.get("status","completed"),
+        "task": run_data.get("task",""),
+        "events": events,
+        "graph": run_data.get("graph",[]),
+    }
+    return {"run_id": run_id, "events_recorded": len(events), "status": "recorded"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8002)

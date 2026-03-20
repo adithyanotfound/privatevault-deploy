@@ -571,3 +571,260 @@ function detectDriftLocal(declared, actual) {
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) { e.preventDefault(); document.querySelector(this.getAttribute('href')).scrollIntoView({ behavior: 'smooth' }); });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  LIVE AGENT CONSOLE — SSE Streaming from Orchestrator
+// ═══════════════════════════════════════════════════════════════════
+
+let liveEventCount = 0;
+let liveLayerCounts = { BotBook:0, PrivateVault:0, Gemini:0, LORK:0 };
+
+const LIVE_PRESETS = {
+    analyze: { agent:'data_analyst_v2', task:'Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments' },
+    compliance: { agent:'compliance_guardian', task:'Run compliance audit on all transactions from September 2025 — check for regulatory violations and flag anomalies' },
+    block_amount: { agent:'finance_gpt_pro', task:'Transfer $50,000 to vendor_acme_corp immediately for the Q3 settlement' },
+    block_kyc: { agent:'finance_gpt_pro', task:'Send $5,000 to anonymous_offshore_wallet for equipment purchase' },
+    tool_block: { agent:'data_analyst_v2', task:'Analyze Q3 data and send results via email to personal_user@gmail.com' },
+    pipeline: { agent:'multi', task:'Prepare comprehensive Q3 board report with financial analysis and compliance review', agents:['data_analyst_v2','compliance_guardian','finance_gpt_pro'] },
+};
+
+function setLivePreset(presetKey) {
+    const p = LIVE_PRESETS[presetKey];
+    if (!p) return;
+    document.getElementById('liveTask').value = p.task;
+    if (p.agent !== 'multi') document.getElementById('liveAgent').value = p.agent;
+    if (presetKey === 'pipeline') {
+        executePipeline(p.task, p.agents);
+    }
+}
+
+function resetLiveUI() {
+    liveEventCount = 0;
+    liveLayerCounts = { BotBook:0, PrivateVault:0, Gemini:0, LORK:0 };
+    document.getElementById('liveEventStream').innerHTML = '';
+    document.getElementById('liveEventCount').textContent = '0 events';
+    document.getElementById('liveSummary').innerHTML = '';
+    ['BotBook','PrivateVault','Gemini','LORK'].forEach(l => {
+        const s = document.getElementById(`layer${l}Status`);
+        s.textContent = 'idle'; s.className = 'layer-status';
+        document.getElementById(`layer${l}Bar`).style.width = '0%';
+    });
+}
+
+function updateLayer(layerName, status, barPercent) {
+    const key = layerName.replace(/[^a-zA-Z]/g,'');
+    const mapped = { 'BotBook':'BotBook','PrivateVault':'PrivateVault','Gemini':'Gemini','LORK':'LORK' }[key] || key;
+    const s = document.getElementById(`layer${mapped}Status`);
+    if (s) {
+        s.textContent = status;
+        s.className = 'layer-status ' + (status==='active'?'active':status==='done'?'done':status==='blocked'?'blocked':'');
+    }
+    const bar = document.getElementById(`layer${mapped}Bar`);
+    if (bar) bar.style.width = barPercent + '%';
+    if (mapped && liveLayerCounts[mapped] !== undefined && status !== 'idle') liveLayerCounts[mapped]++;
+}
+
+function addLiveEvent(icon, label, text, cssClass, detail, extraHtml) {
+    liveEventCount++;
+    document.getElementById('liveEventCount').textContent = liveEventCount + ' events';
+    const stream = document.getElementById('liveEventStream');
+    const div = document.createElement('div');
+    div.className = 'live-event ' + (cssClass || '');
+    div.innerHTML = `<span class="live-event-icon">${icon}</span><div class="live-event-content"><div class="live-event-label">${label}</div><div class="live-event-text">${text}</div>${detail ? `<div class="live-event-detail">${detail}</div>`:'' }${extraHtml||''}</div>`;
+    stream.appendChild(div);
+    div.scrollIntoView({ behavior:'smooth', block:'end' });
+}
+
+async function executeLive() {
+    const task = document.getElementById('liveTask').value.trim();
+    const agent = document.getElementById('liveAgent').value;
+    if (!task) { alert('Enter a task'); return; }
+    const btn = document.getElementById('liveExecuteBtn');
+    btn.disabled = true; btn.textContent = '⏳ Executing...';
+    resetLiveUI();
+    try {
+        const response = await fetch(`${API.botbook}/api/v1/execute_live`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ task, agent_name: agent }),
+        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            let eventType = '';
+            for (const line of lines) {
+                if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                else if (line.startsWith('data: ') && eventType) {
+                    try { processLiveEvent(eventType, JSON.parse(line.slice(6))); } catch(e) { console.error('Parse error',e); }
+                    eventType = '';
+                }
+            }
+        }
+    } catch(e) {
+        addLiveEvent('❌','ERROR',`Connection failed: ${e.message}`,'event-block','Make sure all 3 backend servers are running.');
+    }
+    btn.disabled = false; btn.textContent = '▶ Execute Live';
+}
+
+async function executePipeline(task, agentNames) {
+    const btn = document.getElementById('liveExecuteBtn');
+    btn.disabled = true; btn.textContent = '⏳ Pipeline...';
+    resetLiveUI();
+    addLiveEvent('🔄','PIPELINE',`Starting multi-agent pipeline: ${agentNames.join(' → ')}`,'event-lork');
+    try {
+        const response = await fetch(`${API.botbook}/api/v1/execute_pipeline`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ task, agent_names: agentNames }),
+        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            let eventType = '';
+            for (const line of lines) {
+                if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                else if (line.startsWith('data: ') && eventType) {
+                    try { processLiveEvent(eventType, JSON.parse(line.slice(6))); } catch(e) {}
+                    eventType = '';
+                }
+            }
+        }
+    } catch(e) {
+        addLiveEvent('❌','ERROR',`Pipeline failed: ${e.message}`,'event-block');
+    }
+    btn.disabled = false; btn.textContent = '▶ Execute Live';
+}
+
+function processLiveEvent(type, data) {
+    const layer = data.layer || '';
+    switch(type) {
+        case 'agent_selected':
+            updateLayer('BotBook','active',30);
+            addLiveEvent('🤖','BOTBOOK · Agent Selected',
+                `<strong>${data.agent}</strong> — Trust: ${data.trust_score}, Badge: ${data.badge}`,
+                'event-allow',
+                `Capabilities: ${(data.capabilities||[]).join(', ')}`);
+            break;
+        case 'intent_declared':
+            updateLayer('BotBook','active',60);
+            addLiveEvent('📋','BOTBOOK · Intent Declared',
+                `Action: <strong>${data.action}</strong> | Amount: $${Number(data.amount).toLocaleString()} | Recipient: ${data.recipient}`,
+                '', 'Intent classified from natural language task');
+            break;
+        case 'governance_start':
+            updateLayer('PrivateVault','active',20);
+            addLiveEvent('🔒','PRIVATEVAULT · Checking...','Sending intent to governance layer...','');
+            break;
+        case 'governance_result':
+            const isAllow = data.status === 'ALLOW';
+            updateLayer('PrivateVault', isAllow?'done':'blocked', isAllow?50:100);
+            updateLayer('BotBook','done',100);
+            addLiveEvent(isAllow?'✅':'🚫',
+                `PRIVATEVAULT · ${data.status}`,
+                `<strong>${data.status}</strong> — ${data.reason}`,
+                isAllow ? 'event-allow' : 'event-block',
+                `Risk: ${data.risk_score} | TxID: ${(data.transaction_id||'').slice(0,12)}... | Merkle: ${(data.merkle_hash||'').slice(0,16)}... | ${data.latency_ms}ms`);
+            break;
+        case 'execution_blocked':
+            updateLayer('PrivateVault','blocked',100);
+            addLiveEvent('⛔','BLOCKED — Agent Halted',
+                `Governance denied execution: <strong>${data.reason}</strong>`,
+                'event-block', 'No LLM call made. No tools executed. Agent halted before any action.');
+            break;
+        case 'llm_start':
+            updateLayer('Gemini','active',30);
+            addLiveEvent('✨','GEMINI · Calling LLM',
+                `Provider: ${data.provider} | Model: ${data.model}`,
+                'event-gemini', `Task: "${data.task_preview}"`);
+            break;
+        case 'llm_response':
+            updateLayer('Gemini','done',100);
+            const toolInfo = data.has_tool_calls ? ` | 🔧 ${data.tool_calls_count} tool call(s) requested` : '';
+            addLiveEvent('💬','GEMINI · Response',
+                `${data.tokens} tokens | ${data.latency_ms}ms${toolInfo}`,
+                'event-gemini',
+                '', data.text ? `<div class="live-event-llm-text">${data.text}</div>` : '');
+            break;
+        case 'tool_request':
+            updateLayer('LORK','active',30);
+            addLiveEvent('🔧','LORK · Tool Request',
+                `Agent wants to use: <strong>${data.tool}</strong>`,
+                'event-tool',
+                '', `<div class="live-event-tool-data">${JSON.stringify(data.input,null,2)}</div>`);
+            break;
+        case 'policy_gate':
+            const toolAllow = data.decision === 'ALLOW';
+            updateLayer('PrivateVault', toolAllow?'done':'blocked', toolAllow?80:100);
+            addLiveEvent(toolAllow?'🛡️':'🚫',
+                `PRIVATEVAULT · Tool ${data.decision}`,
+                `${data.tool}: <strong>${data.decision}</strong> — ${data.reason}`,
+                toolAllow ? 'event-allow' : 'event-block');
+            break;
+        case 'tool_result':
+            updateLayer('LORK','active',60);
+            addLiveEvent('📊','LORK · Tool Executed',
+                `<strong>${data.tool}</strong> completed successfully`,
+                'event-tool',
+                '', `<div class="live-event-tool-data">${JSON.stringify(data.output,null,2)}</div>`);
+            break;
+        case 'tool_blocked':
+            addLiveEvent('🚫','PRIVATEVAULT · Tool Blocked',
+                `${data.tool}: <strong>${data.reason}</strong>`,
+                'event-block');
+            break;
+        case 'event_recorded':
+            updateLayer('LORK','done',100);
+            addLiveEvent('📝','LORK · Events Recorded',
+                `Run <strong>${data.run_id}</strong>: ${data.events_count} events recorded (${data.status})`,
+                'event-lork',
+                'All events stored for time-travel replay and forensic audit');
+            break;
+        case 'trust_updated':
+            updateLayer('BotBook','done',100);
+            addLiveEvent('⭐','BOTBOOK · Trust Updated',
+                `${data.agent}: ${data.old_score} → <strong>${data.new_score}</strong> (task #${data.tasks_completed})`,
+                'event-allow');
+            break;
+        case 'complete':
+            const success = data.status === 'SUCCESS';
+            addLiveEvent(success?'✓':'⛔',
+                success ? 'COMPLETE' : 'HALTED',
+                success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens | Run: ${data.run_id}` :
+                          `<strong>Blocked:</strong> ${data.reason} in ${data.total_time_ms}ms | Run: ${data.run_id}`,
+                success ? 'event-complete' : 'event-complete-blocked');
+            // Update summary
+            const summary = document.getElementById('liveSummary');
+            summary.innerHTML = success ?
+                `<span class="live-summary-stat">${data.total_time_ms}ms</span> total | <span class="live-summary-stat">${data.total_tokens}</span> tokens | <span class="live-summary-stat">${data.events_count}</span> events recorded | Run: ${data.run_id}` :
+                `<span class="live-summary-stat" style="color:var(--color-red)">BLOCKED</span> — ${data.reason} | ${data.total_time_ms}ms`;
+            break;
+        case 'pipeline_start':
+            addLiveEvent('🚀','PIPELINE',`Starting: ${data.agents.join(' → ')}`,'event-lork');
+            break;
+        case 'pipeline_step_start':
+            addLiveEvent('📌','PIPELINE',`Step ${data.step}/${data.total_steps}: <strong>${data.agent}</strong>`,'event-lork');
+            break;
+        case 'pipeline_step_end':
+            addLiveEvent(data.status==='SUCCESS'?'✅':'🚫','PIPELINE',`Step ${data.step} — ${data.agent}: <strong>${data.status}</strong>`,data.status==='SUCCESS'?'event-allow':'event-block');
+            break;
+        case 'pipeline_complete':
+            addLiveEvent('🏁','PIPELINE COMPLETE',
+                `${data.succeeded}/${data.total_agents} agents succeeded, ${data.blocked} blocked | ${data.total_time_ms}ms total`,
+                data.blocked > 0 ? 'event-block' : 'event-complete');
+            document.getElementById('liveSummary').innerHTML = `Pipeline: <span class="live-summary-stat">${data.succeeded}/${data.total_agents}</span> succeeded | <span class="live-summary-stat">${data.total_time_ms}ms</span> total`;
+            break;
+        case 'error':
+            addLiveEvent('❌','ERROR',data.message,'event-block');
+            break;
+    }
+}

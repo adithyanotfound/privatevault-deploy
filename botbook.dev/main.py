@@ -7,12 +7,17 @@ import json
 import hashlib
 import time
 import uuid
+import os
 from pathlib import Path
 from typing import Optional, List
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import StreamingResponse
 from pydantic import BaseModel
+
+load_dotenv()
 
 app = FastAPI(title="BotBook", description="Agent Operating System", version="0.1.0")
 
@@ -386,6 +391,47 @@ async def simulate_cli(command: str):
     if command in CLI_OUTPUTS:
         return CLI_OUTPUTS[command]
     raise HTTPException(status_code=404, detail=f"Unknown CLI command: {command}")
+
+# ─── LIVE EXECUTION ENDPOINTS ─────────────────────────────────────
+
+class ExecuteRequest(BaseModel):
+    task: str
+    agent_name: str
+
+class PipelineRequest(BaseModel):
+    task: str
+    agent_names: List[str]
+
+@app.post("/api/v1/execute_live")
+async def execute_live(request: ExecuteRequest):
+    from orchestrator import LiveOrchestrator
+    orch = LiveOrchestrator(
+        vault_url="http://localhost:8000",
+        lork_url="http://localhost:8002",
+        agents_store=agents_store,
+        gemini_key=os.getenv("GEMINI_API_KEY",""),
+    )
+    return StreamingResponse(
+        orch.execute_stream(request.task, request.agent_name),
+        media_type="text/event-stream",
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
+    )
+
+@app.post("/api/v1/execute_pipeline")
+async def execute_pipeline(request: PipelineRequest):
+    from orchestrator import LiveOrchestrator, PipelineOrchestrator
+    orch = LiveOrchestrator(
+        vault_url="http://localhost:8000",
+        lork_url="http://localhost:8002",
+        agents_store=agents_store,
+        gemini_key=os.getenv("GEMINI_API_KEY",""),
+    )
+    pipe = PipelineOrchestrator(orch)
+    return StreamingResponse(
+        pipe.execute_pipeline(request.task, request.agent_names),
+        media_type="text/event-stream",
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
+    )
 
 if __name__ == "__main__":
     import uvicorn
