@@ -4,201 +4,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PrivateVault.ai — AI Agent Governance Platform</title>
+    <title>PrivateVault.ai — Runtime Governance for AI Agents</title>
     <meta name="description"
-        content="Runtime governance, orchestration, and debugging infrastructure for autonomous AI agents. PrivateVault.ai + LORK + BotBook.dev">
+        content="Runtime policy enforcement, time-travel debugging, and agent lifecycle management for autonomous AI systems in production.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script>
+        (function () {
+            const saved = localStorage.getItem('pv-theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = saved || (prefersDark ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 
 <body>
-    <!-- ═══ HERO SECTION ═══ -->
+    <!-- ─── LOADER ─── -->
+    <div id="pageLoader">
+        <div class="loader-logo">PrivateVault<span>.ai</span></div>
+        <div class="loader-bar">
+            <div class="loader-bar-fill"></div>
+        </div>
+    </div>
+
+    <!-- ─── HERO ─── -->
     <section id="hero" class="hero">
-        <div class="hero-bg-grid"></div>
-        <div class="particle-field" id="particleField"></div>
         <nav class="navbar">
             <div class="nav-brand">
-                <div class="nav-logo-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                        <rect x="2" y="2" width="24" height="24" rx="6" stroke="url(#navGrad)" stroke-width="2.5" />
-                        <path d="M9 14L12.5 17.5L19 11" stroke="url(#navGrad)" stroke-width="2.5" stroke-linecap="round"
-                            stroke-linejoin="round" />
-                        <defs>
-                            <linearGradient id="navGrad" x1="0" y1="0" x2="28" y2="28">
-                                <stop stop-color="#6C5CE7" />
-                                <stop offset="1" stop-color="#00D2FF" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-                <span class="nav-logo-text">PrivateVault<span class="nav-logo-dot">.ai</span></span>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                    <rect x="1" y="1" width="16" height="16" rx="3" stroke="var(--brand)" stroke-width="1" />
+                    <path d="M5 9L7.5 11.5L13 6" stroke="var(--brand)" stroke-width="1.2" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+                <span class="nav-logo">PrivateVault<span class="nav-logo-accent">.ai</span></span>
             </div>
             <div class="nav-links">
                 <a href="#governance" class="nav-link">Governance</a>
                 <a href="#botbook" class="nav-link">BotBook</a>
                 <a href="#lork" class="nav-link">LORK</a>
-                <a href="#demo" class="nav-link">Live Demo</a>
+                <a href="#live" class="nav-link">Live Console</a>
+                <a href="#demo" class="nav-link">Pipeline</a>
+                <a href="#shadow" class="nav-link">Shadow Mode</a>
             </div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" onclick="toggleTheme()">
+                <span class="theme-icon-dark">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <path d="M12.5 9A6 6 0 0 1 5 1.5a.5.5 0 0 0-.6-.6A6.5 6.5 0 1 0 13.1 9.6a.5.5 0 0 0-.6-.6Z"
+                            fill="currentColor" />
+                    </svg>
+                </span>
+                <span class="theme-icon-light">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <circle cx="7" cy="7" r="3" fill="currentColor" />
+                        <path
+                            d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.93 2.93l1.06 1.06M10.01 10.01l1.06 1.06M2.93 11.07l1.06-1.06M10.01 3.99l1.06-1.06"
+                            stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+                    </svg>
+                </span>
+            </button>
             <div class="nav-status">
-                <span class="status-dot pulse-green"></span>
-                <span class="status-text">All Systems Online</span>
+                <span class="status-dot" id="statusDot"></span>
+                <span class="status-text" id="statusText">checking...</span>
             </div>
         </nav>
+
         <div class="hero-content">
-            <div class="hero-badge">
-                <span class="hero-badge-dot"></span>
-                Kubernetes for AI Agents
-            </div>
-            <h1 class="hero-title">
-                <span class="hero-line">Runtime Governance</span>
-                <span class="hero-line gradient-text">for Autonomous AI</span>
-            </h1>
+            <p class="hero-kicker">runtime governance infrastructure · v3.1.0-shadow</p>
+            <h1 class="hero-title">Policy enforcement and observability<br>for autonomous AI agents in production.</h1>
             <p class="hero-subtitle">
-                The complete infrastructure stack to make AI agents <strong>safe</strong>, <strong>observable</strong>,
-                and <strong>trustworthy</strong> in production.
-                Policy enforcement • Time-travel debugging • Agent lifecycle management.
+                A three-layer stack: governance node, event-sourced control plane, and agent operating system.
+                Every agent action is verified, recorded, and reproducible.
             </p>
             <div class="hero-cta-row">
-                <a href="#demo" class="btn btn-primary">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <polygon points="4,2 14,8 4,14" fill="currentColor" />
-                    </svg>
-                    Launch Live Demo
-                </a>
-                <a href="#architecture" class="btn btn-secondary">View Architecture →</a>
+                <a href="#live" class="btn btn-primary" id="ctaDemo">Run Live Demo</a>
+                <a href="#architecture" class="btn btn-ghost">View Architecture &rarr;</a>
             </div>
             <div class="hero-stats">
                 <div class="hero-stat">
-                    <span class="hero-stat-num" id="statPolicies">0</span>
-                    <span class="hero-stat-label">Policies Enforced</span>
+                    <span class="hero-stat-num" id="statPolicies">12,847</span>
+                    <span class="hero-stat-label">policies enforced</span>
                 </div>
                 <div class="hero-stat-divider"></div>
                 <div class="hero-stat">
-                    <span class="hero-stat-num" id="statAgents">0</span>
-                    <span class="hero-stat-label">Agents Governed</span>
+                    <span class="hero-stat-num" id="statAgents">342</span>
+                    <span class="hero-stat-label">agents governed</span>
                 </div>
                 <div class="hero-stat-divider"></div>
                 <div class="hero-stat">
-                    <span class="hero-stat-num" id="statBlocked">0</span>
-                    <span class="hero-stat-label">Threats Blocked</span>
+                    <span class="hero-stat-num" id="statBlocked">1,893</span>
+                    <span class="hero-stat-label">threats blocked</span>
                 </div>
+                <span class="hero-stat-context">demo environment</span>
             </div>
         </div>
     </section>
 
-    <!-- ═══ ARCHITECTURE OVERVIEW ═══ -->
-    <section id="architecture" class="section architecture-section">
+    <!-- ─── ARCHITECTURE ─── -->
+    <section id="architecture" class="section">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Platform Architecture</span>
-                <h2 class="section-title">Three Layers. <span class="gradient-text">One Platform.</span></h2>
-                <p class="section-desc">Each layer handles a distinct responsibility. Together they provide the complete
-                    infrastructure for safe AI agent operations.</p>
+                <span class="section-tag">platform architecture</span>
+                <h2 class="section-title">Three layers. One infrastructure stack.</h2>
+                <p class="section-desc">Each layer handles a distinct concern. Together they provide the complete
+                    runtime for safe, observable AI agent deployments.</p>
             </div>
             <div class="arch-layers">
-                <div class="arch-card" data-layer="botbook">
-                    <div class="arch-card-number">L3</div>
-                    <div class="arch-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                            <rect x="4" y="8" width="32" height="24" rx="4" stroke="#00D2FF" stroke-width="2" />
-                            <circle cx="14" cy="20" r="4" stroke="#00D2FF" stroke-width="2" />
-                            <line x1="22" y1="16" x2="32" y2="16" stroke="#00D2FF" stroke-width="2"
-                                stroke-linecap="round" />
-                            <line x1="22" y1="20" x2="30" y2="20" stroke="#00D2FF" stroke-width="2"
-                                stroke-linecap="round" />
-                            <line x1="22" y1="24" x2="28" y2="24" stroke="#00D2FF" stroke-width="2"
-                                stroke-linecap="round" />
-                        </svg>
-                    </div>
-                    <h3 class="arch-card-title">BotBook.dev</h3>
-                    <p class="arch-card-role">Agent Operating System</p>
-                    <p class="arch-card-desc">Create, run, deploy, and orchestrate AI agents. Trust scoring, identity
-                        management, and capability matching.</p>
-                    <div class="arch-card-tags">
-                        <span class="tag">CLI</span>
-                        <span class="tag">Trust Scores</span>
-                        <span class="tag">Workflows</span>
-                        <span class="tag">Agent Registry</span>
-                    </div>
-                </div>
-                <div class="arch-connector">
-                    <div class="arch-connector-line"></div>
-                    <div class="arch-connector-dot"></div>
-                    <div class="arch-connector-line"></div>
-                </div>
-                <div class="arch-card" data-layer="lork">
-                    <div class="arch-card-number">L2</div>
-                    <div class="arch-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                            <path d="M20 4L36 12V28L20 36L4 28V12L20 4Z" stroke="#A78BFA" stroke-width="2" />
-                            <path d="M20 4V20M20 20L36 12M20 20L4 12" stroke="#A78BFA" stroke-width="1.5"
-                                opacity="0.5" />
-                        </svg>
-                    </div>
-                    <h3 class="arch-card-title">LORK</h3>
-                    <p class="arch-card-role">Control Plane</p>
-                    <p class="arch-card-desc">Event-sourced runtime for AI agents. Scheduling, replay, time-travel
-                        debugging, and execution tracing.</p>
-                    <div class="arch-card-tags">
-                        <span class="tag">Event Sourcing</span>
-                        <span class="tag">Replay</span>
-                        <span class="tag">Debugging</span>
-                        <span class="tag">Tracing</span>
-                    </div>
-                </div>
-                <div class="arch-connector">
-                    <div class="arch-connector-line"></div>
-                    <div class="arch-connector-dot"></div>
-                    <div class="arch-connector-line"></div>
-                </div>
+                <!-- L1: PrivateVault.ai -->
                 <div class="arch-card" data-layer="vault">
-                    <div class="arch-card-number">L1</div>
+                    <span class="arch-layer-label">layer 1</span>
                     <div class="arch-card-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                            <rect x="8" y="16" width="24" height="18" rx="3" stroke="#F59E0B" stroke-width="2" />
-                            <path d="M12 16V12C12 7.58 15.58 4 20 4C24.42 4 28 7.58 28 12V16" stroke="#F59E0B"
-                                stroke-width="2" />
-                            <circle cx="20" cy="26" r="3" stroke="#F59E0B" stroke-width="2" />
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <rect x="5" y="11" width="18" height="13" rx="2" stroke="var(--amber)" stroke-width="1" />
+                            <path d="M9 11V8.5C9 5.46 11.46 3 14.5 3C17.54 3 20 5.46 20 8.5V11" stroke="var(--amber)"
+                                stroke-width="1" />
+                            <circle cx="14" cy="18" r="2" stroke="var(--amber)" stroke-width="1" />
                         </svg>
                     </div>
                     <h3 class="arch-card-title">PrivateVault.ai</h3>
                     <p class="arch-card-role">Governance Layer</p>
                     <p class="arch-card-desc">Runtime policy enforcement, shadow verification, Merkle audit ledger, and
-                        cryptographic identity.</p>
+                        KYC identity checks. Every agent action passes through before execution.</p>
                     <div class="arch-card-tags">
-                        <span class="tag">Policy Engine</span>
-                        <span class="tag">Shadow Mode</span>
-                        <span class="tag">Merkle Ledger</span>
-                        <span class="tag">KYC</span>
+                        <span class="arch-tag">Policy Engine</span>
+                        <span class="arch-tag">Shadow Mode</span>
+                        <span class="arch-tag">Merkle Ledger</span>
+                        <span class="arch-tag">KYC</span>
+                    </div>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Policy enforcement at runtime, before execution</div>
+                        <div class="arch-feature">Merkle audit ledger — immutable transaction record</div>
+                        <div class="arch-feature">Shadow mode — test stricter rules without prod impact</div>
+                        <div class="arch-feature">KYC &amp; identity verification for all recipients</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector">
+                    <div class="arch-connector-line"></div>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M1 4H7M4 1L7 4L4 7" stroke="var(--bd-3)" stroke-width="1" stroke-linecap="round" />
+                    </svg>
+                </div>
+
+                <!-- L2: LORK -->
+                <div class="arch-card" data-layer="lork">
+                    <span class="arch-layer-label">layer 2</span>
+                    <div class="arch-card-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <path d="M14 3L25 8.5V19.5L14 25L3 19.5V8.5L14 3Z" stroke="var(--blue)" stroke-width="1" />
+                            <path d="M14 3V14M14 14L25 8.5M14 14L3 8.5" stroke="var(--blue)" stroke-width="0.75"
+                                opacity="0.4" />
+                        </svg>
+                    </div>
+                    <h3 class="arch-card-title">LORK</h3>
+                    <p class="arch-card-role">Control Plane</p>
+                    <p class="arch-card-desc">Event-sourced runtime for AI agents. Deterministic scheduling, step-level
+                        replay, time-travel debugging, and full execution tracing.</p>
+                    <div class="arch-card-tags">
+                        <span class="arch-tag">Event Sourcing</span>
+                        <span class="arch-tag">Replay</span>
+                        <span class="arch-tag">Tracing</span>
+                        <span class="arch-tag">Debugging</span>
+                    </div>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Event-sourced execution — every step recorded</div>
+                        <div class="arch-feature">Time-travel debugging — replay any run deterministically</div>
+                        <div class="arch-feature">Step-level latency and token telemetry</div>
+                        <div class="arch-feature">Directed graph execution visualization</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector">
+                    <div class="arch-connector-line"></div>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M1 4H7M4 1L7 4L4 7" stroke="var(--bd-3)" stroke-width="1" stroke-linecap="round" />
+                    </svg>
+                </div>
+
+                <!-- L3: BotBook.dev -->
+                <div class="arch-card" data-layer="botbook">
+                    <span class="arch-layer-label">layer 3</span>
+                    <div class="arch-card-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <rect x="3" y="6" width="22" height="17" rx="2" stroke="var(--tx-2)" stroke-width="1" />
+                            <circle cx="10" cy="14" r="3" stroke="var(--tx-2)" stroke-width="1" />
+                            <line x1="16" y1="11" x2="23" y2="11" stroke="var(--tx-2)" stroke-width="1"
+                                stroke-linecap="round" />
+                            <line x1="16" y1="14" x2="21" y2="14" stroke="var(--tx-2)" stroke-width="1"
+                                stroke-linecap="round" />
+                            <line x1="16" y1="17" x2="19" y2="17" stroke="var(--tx-2)" stroke-width="1"
+                                stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <h3 class="arch-card-title">BotBook.dev</h3>
+                    <p class="arch-card-role">Agent Operating System</p>
+                    <p class="arch-card-desc">Agent lifecycle management: create, run, orchestrate. Trust scoring,
+                        verified identity, capability matching, and a registry of all agents and humans.</p>
+                    <div class="arch-card-tags">
+                        <span class="arch-tag">CLI</span>
+                        <span class="arch-tag">Trust Scores</span>
+                        <span class="arch-tag">Workflows</span>
+                        <span class="arch-tag">Registry</span>
+                    </div>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Trust scoring — composite of completion, ratings, violations</div>
+                        <div class="arch-feature">Capability matching — highest-trust agent to any task</div>
+                        <div class="arch-feature">CLI-first — scriptable agent lifecycle management</div>
+                        <div class="arch-feature">Unified registry for agents and human members</div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══ GOVERNANCE SIMULATOR ═══ -->
-    <section id="governance" class="section governance-section">
+    <!-- ─── GOVERNANCE — 3-column ─── -->
+    <section id="governance" class="section section-alt">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">PrivateVault.ai</span>
-                <h2 class="section-title">Shadow Verification <span class="gradient-text">Engine</span></h2>
-                <p class="section-desc">Agents send their intent. The governance layer returns ALLOW or BLOCK. No action
-                    executes without verification.</p>
+                <span class="section-tag">privatevault.ai</span>
+                <h2 class="section-title">Shadow Verification Engine</h2>
+                <p class="section-desc">Agents declare intent. The governance node returns [ALLOW] or [BLOCK] before any
+                    action executes. No agent acts without verification.</p>
             </div>
+            <!-- 3-col: form | response | audit -->
             <div class="governance-grid">
-                <div class="gov-panel gov-request-panel">
+                <!-- Col 1: Request form -->
+                <div class="panel" id="govRequestPanel">
                     <div class="panel-header">
-                        <div class="panel-dot panel-dot-blue"></div>
-                        <span>Agent Request</span>
+                        <span class="panel-label">agent request</span>
                     </div>
                     <div class="gov-form">
                         <div class="form-group">
-                            <label>Agent ID</label>
-                            <select id="govAgentId">
+                            <label class="form-label" for="govAgentId">Agent ID</label>
+                            <select id="govAgentId" class="form-control">
                                 <option value="finance_agent">finance_agent</option>
                                 <option value="compliance_agent">compliance_agent</option>
                                 <option value="sales_agent">sales_agent</option>
@@ -206,8 +248,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Action</label>
-                            <select id="govAction">
+                            <label class="form-label" for="govAction">Action</label>
+                            <select id="govAction" class="form-control">
                                 <option value="transfer">transfer</option>
                                 <option value="pay_invoice">pay_invoice</option>
                                 <option value="query_balance">query_balance</option>
@@ -215,106 +257,97 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Amount ($)</label>
-                            <input type="number" id="govAmount" value="5000" min="0">
+                            <label class="form-label" for="govAmount">Amount (USD)</label>
+                            <input type="number" id="govAmount" class="form-control" value="5000" min="0">
                         </div>
                         <div class="form-group">
-                            <label>Recipient</label>
-                            <select id="govRecipient">
+                            <label class="form-label" for="govRecipient">Recipient</label>
+                            <select id="govRecipient" class="form-control">
                                 <option value="vendor_acme_corp">vendor_acme_corp</option>
                                 <option value="internal_account">internal_account</option>
                                 <option value="anonymous_wallet_xyz">anonymous_wallet_xyz</option>
                                 <option value="blockchain_mainnet">blockchain_mainnet</option>
                             </select>
                         </div>
-                        <button id="govSubmit" class="btn btn-primary btn-full" onclick="runGovernanceCheck()">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M3 8L7 12L13 4" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" />
-                            </svg>
-                            Verify Intent
-                        </button>
+                        <button id="govSubmit" class="btn btn-primary btn-block" onclick="runGovernanceCheck()">Verify
+                            Intent</button>
                     </div>
                     <div class="gov-presets">
-                        <span class="presets-label">Quick Scenarios:</span>
-                        <button class="preset-btn preset-allow" onclick="setPreset('allow')">✅ $5k Transfer</button>
-                        <button class="preset-btn preset-block" onclick="setPreset('block_amount')">🚫 $50k
-                            Transfer</button>
-                        <button class="preset-btn preset-block" onclick="setPreset('block_kyc')">🚫 Anon Wallet</button>
-                        <button class="preset-btn preset-block" onclick="setPreset('block_action')">🚫 Deploy
-                            Contract</button>
-                        <button class="preset-btn preset-allow" onclick="setPreset('allow_query')">✅ Balance
-                            Query</button>
-                    </div>
-                </div>
-
-                <div class="gov-panel gov-response-panel">
-                    <div class="panel-header">
-                        <div class="panel-dot panel-dot-green"></div>
-                        <span>Governance Response</span>
-                    </div>
-                    <div id="govResponse" class="gov-response">
-                        <div class="gov-placeholder">
-                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                                <circle cx="24" cy="24" r="20" stroke="#333" stroke-width="2" stroke-dasharray="4 4" />
-                                <path d="M24 14V26M24 32V34" stroke="#555" stroke-width="2.5" stroke-linecap="round" />
-                            </svg>
-                            <p>Submit an agent intent to see the governance response</p>
+                        <span class="form-label" style="display:block;margin-bottom:10px;">quick scenarios</span>
+                        <div class="preset-grid">
+                            <button class="preset-btn preset-allow" onclick="setPreset('allow')">$5k Transfer</button>
+                            <button class="preset-btn preset-block" onclick="setPreset('block_amount')">$50k
+                                Transfer</button>
+                            <button class="preset-btn preset-block" onclick="setPreset('block_kyc')">Anon
+                                Wallet</button>
+                            <button class="preset-btn preset-block" onclick="setPreset('block_action')">Deploy
+                                Contract</button>
+                            <button class="preset-btn preset-allow" onclick="setPreset('allow_query')">Balance
+                                Query</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Audit Log -->
-            <div class="audit-log-panel">
-                <div class="panel-header">
-                    <div class="panel-dot panel-dot-yellow"></div>
-                    <span>Immutable Audit Ledger</span>
-                    <span class="audit-count" id="auditCount">0 entries</span>
+                <!-- Col 2: Response -->
+                <div class="panel" id="govResponsePanel">
+                    <div class="panel-header">
+                        <span class="panel-label">governance response</span>
+                    </div>
+                    <div id="govResponse" class="gov-response">
+                        <div class="empty-state">
+                            <span class="empty-state-icon">// awaiting request</span>
+                            <p class="empty-state-text">Submit an agent intent above to see the governance response from
+                                PrivateVault.ai</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="audit-log" id="auditLog">
-                    <div class="audit-empty">No transactions verified yet. Run scenarios above to populate the ledger.
+
+                <!-- Col 3: Audit log -->
+                <div class="panel" id="auditPanel">
+                    <div class="panel-header">
+                        <span class="panel-label">immutable audit ledger</span>
+                        <span class="panel-meta" id="auditCount">0 entries</span>
+                    </div>
+                    <div class="audit-log" id="auditLog" style="max-height:360px;">
+                        <div class="audit-empty">No transactions verified yet.</div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══ BOTBOOK SECTION ═══ -->
-    <section id="botbook" class="section botbook-section">
+    <!-- ─── BOTBOOK ─── -->
+    <section id="botbook" class="section">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">BotBook.dev</span>
-                <h2 class="section-title">Agent Operating <span class="gradient-text">System</span></h2>
-                <p class="section-desc">Register agents and humans. Each gets a trust score, identity, and capability
-                    profile. Match the best agents to any task.</p>
+                <span class="section-tag">botbook.dev</span>
+                <h2 class="section-title">Agent Operating System</h2>
+                <p class="section-desc">Register agents and humans. Each membership gets a trust profile, LORK execution
+                    ID, and Vault governance identity. Match the highest-trust agents to any task.</p>
             </div>
 
             <div class="botbook-grid">
-                <!-- Agent Registry -->
-                <div class="bb-panel bb-registry">
+                <div class="panel">
                     <div class="panel-header">
-                        <div class="panel-dot panel-dot-cyan"></div>
-                        <span>Agent Registry</span>
-                        <button class="btn btn-sm btn-outline" onclick="registerNewAgent()">+ Register Agent</button>
+                        <span class="panel-label">agent registry</span>
+                        <button class="btn btn-sm" onclick="registerNewAgent()">+ register</button>
                     </div>
                     <div class="agent-list" id="agentList"></div>
                 </div>
 
-                <!-- Trust & Matching -->
-                <div class="bb-panel bb-matching">
+                <div class="panel">
                     <div class="panel-header">
-                        <div class="panel-dot panel-dot-purple"></div>
-                        <span>Capability Matching</span>
+                        <span class="panel-label">capability matching</span>
                     </div>
                     <div class="matching-form">
                         <div class="form-group">
-                            <label>Task Description</label>
-                            <input type="text" id="matchTask" value="Analyze Q3 financial reports and flag anomalies"
+                            <label class="form-label" for="matchTask">Task description</label>
+                            <input type="text" id="matchTask" class="form-control"
+                                value="Analyze Q3 financial reports and flag anomalies"
                                 placeholder="Describe the task...">
                         </div>
                         <div class="form-group">
-                            <label>Required Capabilities</label>
+                            <label class="form-label">Required capabilities</label>
                             <div class="cap-selector" id="capSelector">
                                 <span class="cap-chip active" data-cap="financial_analysis"
                                     onclick="toggleCap(this)">financial_analysis</span>
@@ -328,29 +361,21 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Min Trust Score: <span id="trustVal">0.50</span></label>
+                            <label class="form-label">Min trust: <span id="trustVal">0.50</span></label>
                             <input type="range" id="trustSlider" min="0" max="100" value="50"
                                 oninput="document.getElementById('trustVal').textContent = (this.value/100).toFixed(2)">
                         </div>
-                        <button class="btn btn-primary btn-full" onclick="runMatching()">
-                            🔍 Find Best Agents
-                        </button>
+                        <button class="btn btn-primary btn-block" onclick="runMatching()">Find Best Agents</button>
                     </div>
                     <div id="matchResults" class="match-results"></div>
                 </div>
             </div>
 
-            <!-- CLI Demo -->
-            <div class="cli-demo-panel">
-                <div class="panel-header">
-                    <div class="panel-dot panel-dot-green"></div>
-                    <span>BotBook CLI — Live Demo</span>
-                </div>
+            <div class="panel" style="margin-top:16px;">
+                <div class="panel-header"><span class="panel-label">botbook cli</span></div>
                 <div class="terminal" id="cliTerminal">
-                    <div class="terminal-line">
-                        <span class="terminal-prompt">$</span>
-                        <span class="terminal-cmd">botbook init</span>
-                    </div>
+                    <div class="terminal-line"><span class="terminal-prompt">$</span><span class="terminal-cmd"> botbook
+                            init</span></div>
                 </div>
                 <div class="cli-buttons">
                     <button class="cli-btn" onclick="runCliDemo('init')">botbook init</button>
@@ -364,63 +389,39 @@
         </div>
     </section>
 
-    <!-- ═══ LORK SECTION ═══ -->
-    <section id="lork" class="section lork-section">
+    <!-- ─── LORK — top row 2-col ─── -->
+    <section id="lork" class="section section-alt">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">LORK</span>
-                <h2 class="section-title">Time-Travel <span class="gradient-text">Debugging</span></h2>
+                <span class="section-tag">lork</span>
+                <h2 class="section-title">Time-Travel Debugging</h2>
                 <p class="section-desc">Event-sourced runtime with deterministic replay. Every agent step is recorded,
-                    traced, and reproducible.</p>
+                    traced, and reproducible on demand.</p>
             </div>
 
-            <div class="lork-grid">
-                <!-- Timeline -->
-                <div class="lork-panel lork-timeline-panel">
+            <!-- Top 2-col: Timeline | Replay -->
+            <div class="lork-top-grid">
+                <div class="panel">
                     <div class="panel-header">
-                        <div class="panel-dot panel-dot-purple"></div>
-                        <span>Execution Timeline</span>
-                        <select id="runSelect" class="run-select" onchange="selectRun(this.value)">
-                            <option value="run-001">Run: fintech-pipeline-001</option>
-                            <option value="run-002">Run: support-ticket-002</option>
-                            <option value="run-003">Run: compliance-audit-003</option>
+                        <span class="panel-label">execution timeline</span>
+                        <select id="runSelect" class="form-control form-control-sm" onchange="selectRun(this.value)">
+                            <option value="run-001">run: fintech-pipeline-001</option>
+                            <option value="run-002">run: support-ticket-002</option>
+                            <option value="run-003">run: compliance-audit-003</option>
                         </select>
                     </div>
                     <div class="timeline" id="lorkTimeline"></div>
                 </div>
 
-                <!-- Execution Graph -->
-                <div class="lork-panel lork-graph-panel">
-                    <div class="panel-header">
-                        <div class="panel-dot panel-dot-cyan"></div>
-                        <span>Execution Graph</span>
-                    </div>
-                    <div class="exec-graph" id="execGraph"></div>
-                </div>
-
-                <!-- Stats -->
-                <div class="lork-panel lork-stats-panel">
-                    <div class="panel-header">
-                        <div class="panel-dot panel-dot-yellow"></div>
-                        <span>Agent Performance Stats</span>
-                    </div>
-                    <div class="agent-stats" id="agentStats"></div>
-                </div>
-
-                <!-- Replay -->
-                <div class="lork-panel lork-replay-panel">
-                    <div class="panel-header">
-                        <div class="panel-dot panel-dot-green"></div>
-                        <span>Deterministic Replay</span>
-                    </div>
+                <div class="panel">
+                    <div class="panel-header"><span class="panel-label">deterministic replay</span></div>
                     <div class="replay-controls">
-                        <button class="btn btn-primary" id="replayBtn" onclick="startReplay()">
-                            ▶ Replay Run
-                        </button>
-                        <button class="btn btn-secondary" onclick="resetReplay()">⏹ Reset</button>
+                        <button class="btn btn-primary" id="replayBtn" onclick="startReplay()">&#9654; Replay
+                            Run</button>
+                        <button class="btn btn-ghost" onclick="resetReplay()">&#9646;&#9646; Reset</button>
                         <div class="replay-speed">
-                            <label>Speed:</label>
-                            <select id="replaySpeed">
+                            <label class="form-label">speed</label>
+                            <select id="replaySpeed" class="form-control form-control-sm">
                                 <option value="1000">1x</option>
                                 <option value="500" selected>2x</option>
                                 <option value="250">4x</option>
@@ -428,170 +429,252 @@
                         </div>
                     </div>
                     <div class="replay-output" id="replayOutput">
-                        <div class="replay-placeholder">Press "Replay Run" to re-execute the event log</div>
+                        <div class="empty-state-text" style="padding:16px;">Press "Replay Run" to re-execute the event
+                            log</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Execution graph — full width below top row -->
+            <div class="panel" style="margin-top:16px;">
+                <div class="panel-header">
+                    <span class="panel-label">execution graph</span>
+                </div>
+                <div id="execGraph"></div>
+            </div>
+
+            <!-- Stats full-width below -->
+            <div class="panel lork-stats-panel" style="margin-top:16px;">
+                <div class="panel-header"><span class="panel-label">agent performance</span></div>
+                <div class="agent-stats" id="agentStats"></div>
             </div>
         </div>
     </section>
 
-    <!-- ═══ LIVE AGENT CONSOLE ═══ -->
-    <section id="demo" class="section demo-section">
+    <!-- ─── PIPELINE DEMO ─── -->
+    <section id="demo" class="section">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">🔴 Live Execution</span>
-                <h2 class="section-title">Live Agent <span class="gradient-text">Console</span></h2>
-                <p class="section-desc">Execute agents in real-time through ALL 3 layers. Real Gemini LLM calls, real governance, real event recording.</p>
+                <span class="section-tag">full pipeline demo</span>
+                <h2 class="section-title">End-to-End In Action</h2>
+                <p class="section-desc">Watch all three layers work together: create agents, execute workflows, verify
+                    governance, and inspect the execution trace.</p>
             </div>
-            <div class="live-console-layout">
-                <!-- Input Panel -->
-                <div class="live-input-panel glass-card">
-                    <div class="panel-header"><div class="panel-dot panel-dot-red"></div><span>Agent Execution</span></div>
-                    <div class="live-form">
-                        <div class="form-group">
-                            <label>Select Agent</label>
-                            <select id="liveAgent">
-                                <option value="data_analyst_v2">data_analyst_v2 (trust: 0.792)</option>
-                                <option value="finance_gpt_pro">finance_gpt_pro (trust: 0.776)</option>
-                                <option value="compliance_guardian">compliance_guardian (trust: 0.856)</option>
-                                <option value="support_agent_x">support_agent_x (trust: 0.736)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Task Prompt</label>
-                            <textarea id="liveTask" rows="3" placeholder="Enter a task...">Analyze Q3 revenue trends for GalaniPay and identify growth opportunities</textarea>
-                        </div>
-                        <button id="liveExecuteBtn" class="btn btn-primary btn-full" onclick="executeLive()">▶ Execute Live</button>
+
+            <div class="pipeline-demo">
+                <div class="pipeline-rail">
+                    <div class="pipeline-step-node">
+                        <div class="pstep-dot" id="pd1"></div>
+                        <div class="step-label">Create Team</div>
+                        <div class="step-sublabel">botbook.dev :8001</div>
+                        <div class="step-status-text" id="pst1">pending</div>
                     </div>
-                    <div class="live-presets">
-                        <span class="presets-label">Quick Scenarios:</span>
-                        <button class="preset-btn preset-allow" onclick="setLivePreset('analyze')">📊 Analyze Revenue</button>
-                        <button class="preset-btn preset-allow" onclick="setLivePreset('compliance')">✅ Compliance Check</button>
-                        <button class="preset-btn preset-block" onclick="setLivePreset('block_amount')">🚫 Over-Limit Transfer</button>
-                        <button class="preset-btn preset-block" onclick="setLivePreset('block_kyc')">🚫 Anonymous Recipient</button>
-                        <button class="preset-btn preset-block" onclick="setLivePreset('tool_block')">🛡️ Tool Policy Block</button>
-                        <button class="preset-btn preset-allow" onclick="setLivePreset('pipeline')">🔄 Multi-Agent Pipeline</button>
+                    <div class="pipeline-connector-wrap">
+                        <div class="pipeline-connector-line"></div>
+                        <div class="pipeline-connector-fill" id="pc1"></div>
+                    </div>
+                    <div class="pipeline-step-node">
+                        <div class="pstep-dot" id="pd2"></div>
+                        <div class="step-label">Execute Workflow</div>
+                        <div class="step-sublabel">sequential pipeline</div>
+                        <div class="step-status-text" id="pst2">pending</div>
+                    </div>
+                    <div class="pipeline-connector-wrap">
+                        <div class="pipeline-connector-line"></div>
+                        <div class="pipeline-connector-fill" id="pc2"></div>
+                    </div>
+                    <div class="pipeline-step-node">
+                        <div class="pstep-dot" id="pd3"></div>
+                        <div class="step-label">Governance Check</div>
+                        <div class="step-sublabel">privatevault.ai :8000</div>
+                        <div class="step-status-text" id="pst3">pending</div>
+                    </div>
+                    <div class="pipeline-connector-wrap">
+                        <div class="pipeline-connector-line"></div>
+                        <div class="pipeline-connector-fill" id="pc3"></div>
+                    </div>
+                    <div class="pipeline-step-node">
+                        <div class="pstep-dot" id="pd4"></div>
+                        <div class="step-label">LORK Inspection</div>
+                        <div class="step-sublabel">timeline + stats + graph</div>
+                        <div class="step-status-text" id="pst4">pending</div>
                     </div>
                 </div>
-                <!-- Event Stream -->
-                <div class="live-stream-panel glass-card">
-                    <div class="panel-header"><div class="panel-dot panel-dot-green"></div><span>Real-Time Event Stream</span><span class="live-event-count" id="liveEventCount">0 events</span></div>
-                    <div id="liveEventStream" class="live-event-stream">
-                        <div class="live-placeholder">Select a scenario and click "Execute Live" to watch all 3 layers work together with real Gemini AI.</div>
-                    </div>
-                </div>
-                <!-- Layer Activity -->
-                <div class="live-layers-panel glass-card">
-                    <div class="panel-header"><div class="panel-dot panel-dot-purple"></div><span>Layer Activity</span></div>
-                    <div class="layer-indicators">
-                        <div class="layer-row" id="layerBotBook"><span class="layer-icon">🤖</span><span class="layer-name">BotBook</span><span class="layer-status" id="layerBotBookStatus">idle</span><div class="layer-bar"><div class="layer-bar-fill" id="layerBotBookBar"></div></div></div>
-                        <div class="layer-row" id="layerPrivateVault"><span class="layer-icon">🔒</span><span class="layer-name">PrivateVault</span><span class="layer-status" id="layerPrivateVaultStatus">idle</span><div class="layer-bar"><div class="layer-bar-fill" id="layerPrivateVaultBar"></div></div></div>
-                        <div class="layer-row" id="layerGemini"><span class="layer-icon">✨</span><span class="layer-name">Gemini</span><span class="layer-status" id="layerGeminiStatus">idle</span><div class="layer-bar"><div class="layer-bar-fill" id="layerGeminiBar"></div></div></div>
-                        <div class="layer-row" id="layerLORK"><span class="layer-icon">📝</span><span class="layer-name">LORK</span><span class="layer-status" id="layerLORKStatus">idle</span><div class="layer-bar"><div class="layer-bar-fill" id="layerLORKBar"></div></div></div>
-                    </div>
-                    <div class="live-summary" id="liveSummary"></div>
+
+                <button class="btn btn-primary" id="pipelineStartBtn" onclick="runFullPipeline()"
+                    style="margin:20px auto;display:block;">
+                    Run Full Pipeline Demo
+                </button>
+
+                <div class="pipeline-output" id="pipelineOutput">
+                    <div class="empty-state-text" style="padding:16px;">Click "Run Full Pipeline Demo" to see all three
+                        layers in action</div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══ SHADOW MODE SECTION ═══ -->
-    <section id="shadow" class="section shadow-section">
+    <!-- ─── LIVE AGENT CONSOLE ─── -->
+    <section id="live" class="section section-alt">
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">Shadow Mode</span>
-                <h2 class="section-title">Intent Drift <span class="gradient-text">Detection</span></h2>
-                <p class="section-desc">Detect when an AI agent's actual payload drifts from its declared intent. Test
-                    stricter rules without breaking production.</p>
+                <span class="section-tag">live console</span>
+                <h2 class="section-title">Live Agent Execution</h2>
+                <p class="section-desc">Execute agents in real-time through the full governance stack. Watch every SSE event as it flows through BotBook → PrivateVault → Gemini → LORK.</p>
             </div>
 
-            <div class="shadow-grid">
-                <div class="shadow-metrics">
-                    <div class="metric-card">
-                        <div class="metric-value" id="metricDivergence">0</div>
-                        <div class="metric-label">Divergences Detected</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill" id="divBar" style="width:0%"></div>
+            <div class="live-console-grid">
+                <!-- Left: Input + Layer Monitor -->
+                <div class="live-left">
+                    <div class="panel">
+                        <div class="panel-header"><span class="panel-label">execute agent</span></div>
+                        <div class="live-form">
+                            <div class="form-group">
+                                <label class="form-label" for="liveTask">Task</label>
+                                <textarea id="liveTask" class="form-control" rows="3" placeholder="Describe the task for the agent...">Transfer $5,000 to vendor_acme_corp for Q3 invoice payment</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="liveAgent">Agent</label>
+                                <select id="liveAgent" class="form-control">
+                                    <option value="finance_gpt_pro">finance_gpt_pro</option>
+                                    <option value="compliance_guardian">compliance_guardian</option>
+                                    <option value="support_agent_x">support_agent_x</option>
+                                    <option value="risk_sentinel_v3">risk_sentinel_v3</option>
+                                </select>
+                            </div>
+                            <button id="liveExecuteBtn" class="btn btn-primary btn-block" onclick="executeLive()">&#9654; Execute Live</button>
+                        </div>
+                        <div class="live-presets">
+                            <span class="form-label" style="display:block;margin-bottom:8px;width:100%;">presets</span>
+                            <button class="preset-btn preset-allow" onclick="setLivePreset('safe_transfer')">Safe Transfer</button>
+                            <button class="preset-btn preset-block" onclick="setLivePreset('large_transfer')">Large Transfer</button>
+                            <button class="preset-btn preset-block" onclick="setLivePreset('anon_wallet')">Anon Wallet</button>
+                            <button class="preset-btn preset-allow" onclick="setLivePreset('balance_check')">Balance Check</button>
                         </div>
                     </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="metricPrevented">$0</div>
-                        <div class="metric-label">Risk Prevented</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill yellow" id="prevBar" style="width:0%"></div>
-                        </div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-value" id="metricHighRisk">0</div>
-                        <div class="metric-label">High Risk Examples</div>
-                        <div class="metric-bar">
-                            <div class="metric-bar-fill red" id="riskBar" style="width:0%"></div>
+
+                    <div class="panel" style="margin-top:12px;">
+                        <div class="panel-header"><span class="panel-label">layer status</span></div>
+                        <div class="layer-monitor">
+                            <div class="layer-row">
+                                <span class="layer-icon"></span>
+                                <span class="layer-name">BotBook</span>
+                                <span class="layer-status" id="layerBotBookStatus">idle</span>
+                                <div class="layer-bar-wrap"><div class="layer-bar" id="layerBotBookBar"></div></div>
+                            </div>
+                            <div class="layer-row">
+                                <span class="layer-icon"></span>
+                                <span class="layer-name">PrivateVault</span>
+                                <span class="layer-status" id="layerPrivateVaultStatus">idle</span>
+                                <div class="layer-bar-wrap"><div class="layer-bar" id="layerPrivateVaultBar"></div></div>
+                            </div>
+                            <div class="layer-row">
+                                <span class="layer-icon"></span>
+                                <span class="layer-name">Gemini</span>
+                                <span class="layer-status" id="layerGeminiStatus">idle</span>
+                                <div class="layer-bar-wrap"><div class="layer-bar" id="layerGeminiBar"></div></div>
+                            </div>
+                            <div class="layer-row">
+                                <span class="layer-icon"></span>
+                                <span class="layer-name">LORK</span>
+                                <span class="layer-status" id="layerLORKStatus">idle</span>
+                                <div class="layer-bar-wrap"><div class="layer-bar" id="layerLORKBar"></div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="drift-demo-panel">
-                    <div class="panel-header">
-                        <div class="panel-dot panel-dot-red"></div>
-                        <span>Intent Drift Simulation</span>
+                <!-- Right: Event stream -->
+                <div class="live-right">
+                    <div class="panel" style="flex:1;display:flex;flex-direction:column;">
+                        <div class="panel-header">
+                            <span class="panel-label">event stream</span>
+                            <span class="panel-meta" id="liveEventCount">0 events</span>
+                        </div>
+                        <div class="live-event-stream" id="liveEventStream">
+                            <div class="live-placeholder">Execute an agent above to stream real-time events through the full governance stack</div>
+                        </div>
+                        <div class="live-summary" id="liveSummary"></div>
                     </div>
-                    <div class="drift-comparison">
-                        <div class="drift-side">
-                            <h4>🤖 Agent Declares</h4>
-                            <div class="drift-code">
-                                <pre id="driftDeclared">{
-  "action": "approve_loan",
-  "amount": 250000,
-  "recipient": "business_acme"
-}</pre>
-                            </div>
-                        </div>
-                        <div class="drift-arrow">
-                            <div class="drift-arrow-line"></div>
-                            <div class="drift-arrow-label" id="driftLabel">Compare</div>
-                        </div>
-                        <div class="drift-side">
-                            <h4>📦 Actual Payload</h4>
-                            <div class="drift-code">
-                                <pre id="driftActual">{
-  "action": "approve_loan",
-  "amount": 2500000,
-  "recipient": "business_acme",
-  "bypass_approval": true
-}</pre>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary btn-full" onclick="runDriftDetection()">🔍 Detect Drift</button>
-                    <div id="driftResult" class="drift-result"></div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- ═══ FOOTER ═══ -->
+    <!-- ─── SHADOW MODE ─── -->
+    <section id="shadow" class="section section-alt">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">shadow mode</span>
+                <h2 class="section-title">Intent Drift Detection</h2>
+                <p class="section-desc">Detect when an AI agent's actual payload diverges from its declared intent. Test
+                    stricter rules without impacting production.</p>
+            </div>
+
+            <!-- 3-col metrics row -->
+            <div class="shadow-metrics">
+                <div class="metric-card">
+                    <div class="metric-value" id="metricDivergence">0</div>
+                    <div class="metric-label">Divergences Detected</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill fill-red" id="divBar" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="metricPrevented">$0</div>
+                    <div class="metric-label">Risk Prevented</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill fill-amber" id="prevBar" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="metricHighRisk">0</div>
+                    <div class="metric-label">High Risk Events</div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill fill-red-muted" id="riskBar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drift panel full-width below -->
+            <div class="panel drift-panel-wrap">
+                <div class="panel-header">
+                    <span class="panel-label">intent drift simulation</span>
+                    <span class="panel-meta" id="driftLabel">compare</span>
+                </div>
+                <div class="diff-view" id="driftDiff"></div>
+                <div style="padding:12px 20px;border-top:0.5px solid var(--bd-1);">
+                    <button class="btn btn-primary btn-block" onclick="runDriftDetection()">Detect Drift</button>
+                </div>
+                <div id="driftResult" class="drift-result"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── FOOTER ─── -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
-                    <span class="nav-logo-text">PrivateVault<span class="nav-logo-dot">.ai</span></span>
+                    <span class="nav-logo">PrivateVault<span class="nav-logo-accent">.ai</span></span>
                     <p class="footer-desc">Runtime Governance Infrastructure for AI Agents</p>
                 </div>
                 <div class="footer-links-group">
-                    <h4>Platform</h4>
-                    <a href="#governance">PrivateVault.ai</a>
-                    <a href="#botbook">BotBook.dev</a>
-                    <a href="#lork">LORK Runtime</a>
+                    <h4 class="footer-group-title">Platform</h4>
+                    <a href="#governance" class="footer-link">PrivateVault.ai</a>
+                    <a href="#botbook" class="footer-link">BotBook.dev</a>
+                    <a href="#lork" class="footer-link">LORK Runtime</a>
                 </div>
                 <div class="footer-links-group">
-                    <h4>Resources</h4>
-                    <a href="#demo">Live Demo</a>
-                    <a href="#architecture">Architecture</a>
-                    <a href="#shadow">Shadow Mode</a>
+                    <h4 class="footer-group-title">Resources</h4>
+                    <a href="#live" class="footer-link">Live Console</a>
+                    <a href="#demo" class="footer-link">Pipeline Demo</a>
+                    <a href="#architecture" class="footer-link">Architecture</a>
+                    <a href="#shadow" class="footer-link">Shadow Mode</a>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>© 2026 PrivateVault.ai — Built by Galani Protocol</p>
+                <span>&copy; 2026 PrivateVault.ai &mdash; Built by Galani Protocol</span>
             </div>
         </div>
     </footer>
