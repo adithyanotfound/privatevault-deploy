@@ -372,22 +372,22 @@ window.runMatching = async function () {
     const caps = [...document.querySelectorAll(".cap-chip.active")].map(c => c.dataset.cap);
 
     try {
-        const r = await fetch("http://localhost:8001/api/agents/match", {
+        const r = await fetch("http://localhost:8001/api/v1/match", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ task, capabilities: caps, min_trust: minTrust }),
+            body: JSON.stringify({ task, required_capabilities: caps, min_trust_score: minTrust, max_results: 5 }),
             signal: AbortSignal.timeout(3000),
         });
         if (!r.ok) throw 0;
         const data = await r.json();
-        renderMatchResults(data.matches || data);
+        renderMatchResults(data);
     } catch {
         /* local match */
         const matches = AGENT_REGISTRY
             .filter(a => a.trust >= minTrust && (caps.length === 0 || caps.some(c => (a.caps || []).includes(c))))
             .sort((a, b) => b.trust - a.trust)
-            .slice(0, 4)
-            .map((a, i) => ({ rank: i + 1, name: a.name, trust: a.trust, score: a.trust * (.7 + Math.random() * .24) }));
+            .slice(0, 5)
+            .map((a, i) => ({ rank: i + 1, name: a.name, trust_score: a.trust, match_score: a.trust * (.7 + Math.random() * .24) }));
         renderMatchResults(matches);
     }
 };
@@ -399,12 +399,16 @@ function renderMatchResults(matches) {
         el.innerHTML = `<div class="audit-empty">No agents match the criteria.</div>`;
         return;
     }
-    el.innerHTML = matches.map(m => {
-        const sc = m.score != null ? m.score : m.trust;
-        const col = sc >= .85 ? "var(--green)" : sc >= .65 ? "var(--amber)" : "var(--red)";
+    el.innerHTML = matches.map((m, i) => {
+        const sc = m.match_score != null ? m.match_score : (m.trust_score || m.trust || 0);
+        const col = sc >= .35 ? "var(--green)" : sc >= .2 ? "var(--amber)" : "var(--red)";
+        const b = m.match_breakdown || {};
+        const breakdownHtml = b.nlp_relevance !== undefined
+            ? `<div style="font-size:0.65rem;color:var(--brand);margin-top:2px;opacity:.8">NLP: ${(b.nlp_relevance*100).toFixed(0)}% | Cap: ${(b.capability_match*100).toFixed(0)}% | Trust: ${(b.trust*100).toFixed(0)}% | Exp: ${(b.experience*100).toFixed(0)}%</div>`
+            : '';
         return `<div class="match-result-card">
-          <span class="match-rank">#${m.rank}</span>
-          <div class="match-info"><div class="match-name">${esc(m.name)}</div></div>
+          <span class="match-rank">#${m.rank || (i+1)}</span>
+          <div class="match-info"><div class="match-name">${esc(m.name)} <span style="font-size:0.6rem;opacity:.5">${m.version ? 'v'+m.version : ''}</span></div>${breakdownHtml}</div>
           <div class="match-score" style="color:${col};">${(sc * 100).toFixed(0)}</div>
         </div>`;
     }).join("");
@@ -1384,10 +1388,10 @@ async function loadDriftScenarios() {
    LIVE AGENT CONSOLE — SSE streaming from orchestrator
    =================================================================== */
 const LIVE_PRESETS = {
-    safe_transfer:  { task: "Transfer $5,000 to vendor_acme_corp for Q3 invoice payment", agent: "finance_gpt_pro" },
+    safe_transfer:  { task: "Transfer $5,000 to vendor_acme_corp for Q3 invoice payment", agent: "auto" },
     large_transfer: { task: "Transfer $50,000 to offshore_account_cayman for executive bonus", agent: "finance_gpt_pro" },
-    anon_wallet:    { task: "Send $500 to anonymous_wallet_xyz for quick settlement", agent: "support_agent_x" },
-    balance_check:  { task: "Query account balance for internal_account", agent: "compliance_guardian" },
+    anon_wallet:    { task: "Send $500 to anonymous_wallet_xyz for quick settlement", agent: "auto" },
+    balance_check:  { task: "Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments", agent: "auto" },
 };
 
 let liveEventCount = 0;
@@ -1491,18 +1495,21 @@ function processLiveEvent(type, data) {
                 "event-allow",
                 `Evaluating task: "${esc(data.task || '').substring(0,60)}..."`);
             break;
-        case "auto_select_result":
-            addLiveEvent("BOTBOOK · Match Found",
-                `Selected: <strong>${esc(data.selected)}</strong>`,
-                "event-allow",
-                data.candidates ? data.candidates.slice(0, 3).map(c => `[${c.name}: ${(c.score * 100).toFixed(0)}%]`).join(" ") : "");
+        case "auto_select_result": {
+            const candidatesHtml = (data.candidates||[]).map((c,i) =>
+                `<div style="margin:1px 0;font-size:0.72rem;${i===0?'color:var(--green);font-weight:700':'opacity:.7'}">#${i+1} ${esc(c.name)} — score: ${(c.score*100).toFixed(0)}% (NLP: ${((c.breakdown?.nlp_relevance||0)*100).toFixed(0)}%, trust: ${((c.breakdown?.trust||0)*100).toFixed(0)}%)</div>`
+            ).join('');
+            addLiveEvent("BOTBOOK · Agent Matched",
+                `Selected <strong>${esc(data.selected)}</strong> from ${(data.candidates||[]).length} candidates`,
+                "event-allow", "", candidatesHtml ? `<div class="live-event-tool-data" style="background:rgba(34,197,94,0.06);border-left:2px solid rgba(34,197,94,0.3);padding:6px 10px;margin-top:6px;border-radius:4px">${candidatesHtml}</div>` : "");
             break;
+        }
         case "agent_selected":
             updateLayer("BotBook", "active", 30);
             addLiveEvent("BOTBOOK · Agent Selected",
-                `<strong>${esc(data.agent)}</strong> — Trust: ${data.trust_score}, Badge: ${esc(data.badge)}`,
+                `<strong>${esc(data.agent)}</strong> v${data.version||'?'} — Trust: ${data.trust_score}, Badge: ${esc(data.badge)}`,
                 "event-allow",
-                `Capabilities: ${(data.capabilities || []).join(", ")}`);
+                `Capabilities: ${(data.capabilities || []).join(", ")}${data.description ? ' | '+esc(data.description) : ''}`);
             break;
         case "intent_declared":
             updateLayer("BotBook", "active", 60);
@@ -1532,16 +1539,25 @@ function processLiveEvent(type, data) {
             break;
         case "llm_start":
             updateLayer("Gemini", "active", 30);
-            addLiveEvent("GEMINI · Calling LLM",
+            addLiveEvent(`GEMINI · Calling LLM${data.react_step > 1 ? ` (ReAct step ${data.react_step})` : ''}`,
                 `Provider: ${esc(data.provider)} | Model: ${esc(data.model)}`,
                 "event-gemini", `Task: "${esc(data.task_preview)}"`);
             break;
-        case "llm_response":
+        case "llm_response": {
             updateLayer("Gemini", "done", 100);
-            addLiveEvent("GEMINI · Response",
-                `${data.tokens} tokens | ${data.latency_ms}ms`,
+            const toolInfo = data.has_tool_calls ? ` | ${data.tool_calls_count} tool call(s)` : '';
+            const stepLabel = data.react_step > 1 ? ` (ReAct step ${data.react_step} — synthesizing)` : '';
+            addLiveEvent(`GEMINI · Response${stepLabel}`,
+                `${data.tokens} tokens | ${data.latency_ms}ms${toolInfo}`,
                 "event-gemini", "",
                 data.text ? `<div class="live-event-llm-text">${esc(data.text)}</div>` : "");
+            break;
+        }
+        case "react_continue":
+            updateLayer("Gemini", "active", 50);
+            addLiveEvent("REACT · Feeding Results Back",
+                `Step ${data.step}: ${esc(data.reason)}`,
+                "event-gemini", "Multi-step reasoning: tool results fed back to LLM for synthesis");
             break;
         case "tool_request":
             updateLayer("LORK", "active", 30);
@@ -1574,7 +1590,9 @@ function processLiveEvent(type, data) {
             updateLayer("LORK", "done", 100);
             addLiveEvent("LORK · Events Recorded",
                 `Run <strong>${esc(data.run_id)}</strong>: ${data.events_count} events (${esc(data.status)})`,
-                "event-lork", "All events stored for time-travel replay");
+                "event-lork", "All events stored for time-travel replay and forensic audit");
+            /* auto-refresh LORK timeline so live runs appear */
+            setTimeout(() => { try { loadLorkRuns && loadLorkRuns(); } catch{} }, 500);
             break;
         case "trust_updated":
             updateLayer("BotBook", "done", 100);
@@ -1584,9 +1602,10 @@ function processLiveEvent(type, data) {
             break;
         case "complete": {
             const success = data.status === "SUCCESS";
+            const reactInfo = data.react_steps > 1 ? ` | ${data.react_steps} ReAct steps` : '';
             addLiveEvent(
                 success ? "COMPLETE" : "HALTED",
-                success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens | Run: ${esc(data.run_id)}`
+                success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens${reactInfo} | Run: ${esc(data.run_id)}`
                         : `<strong>Blocked:</strong> ${esc(data.reason)} in ${data.total_time_ms}ms | Run: ${esc(data.run_id)}`,
                 success ? "event-complete" : "event-complete-blocked");
             const summary = $("liveSummary");
