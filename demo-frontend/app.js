@@ -1484,6 +1484,19 @@ window.executeLive = async function () {
 
 function processLiveEvent(type, data) {
     switch (type) {
+        case "auto_select_start":
+            updateLayer("BotBook", "active", 10);
+            addLiveEvent("BOTBOOK · Auto Match",
+                `Matching task against capabilities...`,
+                "event-allow",
+                `Evaluating task: "${esc(data.task || '').substring(0,60)}..."`);
+            break;
+        case "auto_select_result":
+            addLiveEvent("BOTBOOK · Match Found",
+                `Selected: <strong>${esc(data.selected)}</strong>`,
+                "event-allow",
+                data.candidates ? data.candidates.slice(0, 3).map(c => `[${c.name}: ${(c.score * 100).toFixed(0)}%]`).join(" ") : "");
+            break;
         case "agent_selected":
             updateLayer("BotBook", "active", 30);
             addLiveEvent("BOTBOOK · Agent Selected",
