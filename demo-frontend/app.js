@@ -257,11 +257,16 @@ async function runMatching() {
 
     const el = document.getElementById('matchResults');
     if (!matches.length) { el.innerHTML = `<div style="padding:20px;text-align:center;color:#5a5a6e">No agents match the criteria</div>`; return; }
-    el.innerHTML = matches.map((m, i) => `
-        <div class="match-result-card"><div class="match-rank">#${i+1}</div>
-            <div class="match-info"><div class="match-name">${m.name}</div>
-                <div style="font-size:0.7rem;color:#9090a0">${(m.capabilities||[]).join(', ')}</div></div>
-            <div class="match-score">${(m.trust_score||0).toFixed(3)}</div></div>`).join('');
+    el.innerHTML = matches.map((m, i) => {
+        const b = m.match_breakdown || {};
+        const score = m.match_score || m.trust_score || 0;
+        return `<div class="match-result-card"><div class="match-rank">#${i+1}</div>
+            <div class="match-info"><div class="match-name">${m.name} <span style="font-size:0.65rem;color:#9090a0">v${m.version||'?'}</span></div>
+                <div style="font-size:0.7rem;color:#9090a0">${(m.capabilities||[]).join(', ')}</div>
+                ${b.nlp_relevance !== undefined ? `<div style="font-size:0.65rem;color:#6C5CE7;margin-top:2px">NLP: ${(b.nlp_relevance*100).toFixed(0)}% | Cap: ${(b.capability_match*100).toFixed(0)}% | Trust: ${(b.trust*100).toFixed(0)}% | Exp: ${(b.experience*100).toFixed(0)}% | Rel: ${(b.reliability*100).toFixed(0)}%</div>` : ''}
+            </div>
+            <div class="match-score">${score.toFixed(3)}</div></div>`;
+    }).join('');
 }
 
 // ═══ CLI DEMO — connected to BotBook API ═══
@@ -580,11 +585,11 @@ let liveEventCount = 0;
 let liveLayerCounts = { BotBook:0, PrivateVault:0, Gemini:0, LORK:0 };
 
 const LIVE_PRESETS = {
-    analyze: { agent:'data_analyst_v2', task:'Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments' },
-    compliance: { agent:'compliance_guardian', task:'Run compliance audit on all transactions from September 2025 — check for regulatory violations and flag anomalies' },
+    analyze: { agent:'auto', task:'Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments' },
+    compliance: { agent:'auto', task:'Run compliance audit on all transactions from September 2025 — check for regulatory violations and flag anomalies' },
     block_amount: { agent:'finance_gpt_pro', task:'Transfer $50,000 to vendor_acme_corp immediately for the Q3 settlement' },
     block_kyc: { agent:'finance_gpt_pro', task:'Send $5,000 to anonymous_offshore_wallet for equipment purchase' },
-    tool_block: { agent:'data_analyst_v2', task:'Analyze Q3 data and send results via email to personal_user@gmail.com' },
+    tool_block: { agent:'auto', task:'Analyze Q3 data and send results via email to personal_user@gmail.com' },
     pipeline: { agent:'multi', task:'Prepare comprehensive Q3 board report with financial analysis and compliance review', agents:['data_analyst_v2','compliance_guardian','finance_gpt_pro'] },
 };
 
@@ -708,12 +713,27 @@ async function executePipeline(task, agentNames) {
 function processLiveEvent(type, data) {
     const layer = data.layer || '';
     switch(type) {
+        case 'auto_select_start':
+            updateLayer('BotBook','active',10);
+            addLiveEvent('🎯','BOTBOOK · Auto-Selecting Agent',
+                'Analyzing task with NLP keyword matching + trust scoring...',
+                'event-allow');
+            break;
+        case 'auto_select_result':
+            updateLayer('BotBook','active',25);
+            const candidatesHtml = (data.candidates||[]).map((c,i) =>
+                `<div style="margin:2px 0;font-size:0.75rem;${i===0?'color:var(--color-green);font-weight:700':'color:var(--text-muted)'}">#${i+1} ${c.name} — score: ${c.score} (NLP: ${((c.breakdown?.nlp_relevance||0)*100).toFixed(0)}%, trust: ${((c.breakdown?.trust||0)*100).toFixed(0)}%)</div>`
+            ).join('');
+            addLiveEvent('🏆','BOTBOOK · Agent Matched',
+                `Selected <strong>${data.selected}</strong> from ${(data.candidates||[]).length} candidates`,
+                'event-allow', '', `<div class="live-event-tool-data" style="background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.15)">${candidatesHtml}</div>`);
+            break;
         case 'agent_selected':
             updateLayer('BotBook','active',30);
             addLiveEvent('🤖','BOTBOOK · Agent Selected',
-                `<strong>${data.agent}</strong> — Trust: ${data.trust_score}, Badge: ${data.badge}`,
+                `<strong>${data.agent}</strong> v${data.version||'?'} — Trust: ${data.trust_score}, Badge: ${data.badge}`,
                 'event-allow',
-                `Capabilities: ${(data.capabilities||[]).join(', ')}`);
+                `Capabilities: ${(data.capabilities||[]).join(', ')}${data.description ? ' | '+data.description : ''}`);
             break;
         case 'intent_declared':
             updateLayer('BotBook','active',60);
@@ -743,17 +763,24 @@ function processLiveEvent(type, data) {
             break;
         case 'llm_start':
             updateLayer('Gemini','active',30);
-            addLiveEvent('✨','GEMINI · Calling LLM',
+            addLiveEvent('✨',`GEMINI · Calling LLM${data.react_step > 1 ? ` (ReAct step ${data.react_step})` : ''}`,
                 `Provider: ${data.provider} | Model: ${data.model}`,
                 'event-gemini', `Task: "${data.task_preview}"`);
             break;
         case 'llm_response':
             updateLayer('Gemini','done',100);
             const toolInfo = data.has_tool_calls ? ` | 🔧 ${data.tool_calls_count} tool call(s) requested` : '';
-            addLiveEvent('💬','GEMINI · Response',
+            const stepLabel = data.react_step > 1 ? ` (ReAct step ${data.react_step} — synthesizing)` : '';
+            addLiveEvent('💬',`GEMINI · Response${stepLabel}`,
                 `${data.tokens} tokens | ${data.latency_ms}ms${toolInfo}`,
                 'event-gemini',
                 '', data.text ? `<div class="live-event-llm-text">${data.text}</div>` : '');
+            break;
+        case 'react_continue':
+            updateLayer('Gemini','active',50);
+            addLiveEvent('🔄','REACT · Feeding Results Back',
+                `Step ${data.step}: ${data.reason}`,
+                'event-gemini', 'Multi-step reasoning: tool results fed back to LLM for synthesis');
             break;
         case 'tool_request':
             updateLayer('LORK','active',30);
@@ -788,6 +815,8 @@ function processLiveEvent(type, data) {
                 `Run <strong>${data.run_id}</strong>: ${data.events_count} events recorded (${data.status})`,
                 'event-lork',
                 'All events stored for time-travel replay and forensic audit');
+            // Auto-refresh LORK timeline so live runs appear there too
+            setTimeout(() => initLorkTimeline(), 500);
             break;
         case 'trust_updated':
             updateLayer('BotBook','done',100);
@@ -797,9 +826,10 @@ function processLiveEvent(type, data) {
             break;
         case 'complete':
             const success = data.status === 'SUCCESS';
+            const reactInfo = data.react_steps > 1 ? ` | ${data.react_steps} ReAct steps` : '';
             addLiveEvent(success?'✓':'⛔',
                 success ? 'COMPLETE' : 'HALTED',
-                success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens | Run: ${data.run_id}` :
+                success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens${reactInfo} | Run: ${data.run_id}` :
                           `<strong>Blocked:</strong> ${data.reason} in ${data.total_time_ms}ms | Run: ${data.run_id}`,
                 success ? 'event-complete' : 'event-complete-blocked');
             // Update summary
