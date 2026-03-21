@@ -1669,3 +1669,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     /* remove loader */
     hideLoader();
 });
+
+/* ===================================================================
+   DEMO FORM TOAST
+   =================================================================== */
+window.showDemoToast = function() {
+    const toast = document.getElementById("demo-toast");
+    const form = document.getElementById("demo-form");
+    if (toast) {
+        toast.classList.remove("hidden");
+        /* force reflow */
+        void toast.offsetWidth;
+        toast.classList.add("show");
+        setTimeout(() => {
+            toast.classList.remove("show");
+            setTimeout(() => toast.classList.add("hidden"), 400);
+        }, 4000);
+    }
+    if (form) {
+        form.reset();
+    }
+    if (typeof window.submitted !== 'undefined') {
+        window.submitted = false;
+    }
+};

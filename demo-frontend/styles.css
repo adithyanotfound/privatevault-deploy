@@ -3068,3 +3068,36 @@ body {
 @keyframes btn-spin {
     to { transform: rotate(360deg); }
 }
+
+/* ===================================================================
+   TOAST NOTIFICATION
+   =================================================================== */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg-1);
+    border: 0.5px solid var(--bd-2);
+    border-radius: var(--r-md);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(150%);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+    z-index: 10000;
+}
+[data-theme="dark"] .toast {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.toast-icon { flex-shrink: 0; }
+.toast-content { display: flex; flex-direction: column; gap: 2px; }
+.toast-title { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--tx-1); line-height: 1.3; }
+.toast-desc { font-family: var(--font-sans); font-size: 13px; color: var(--tx-2); line-height: 1.4; }
+
+.toast.show {
+    transform: translateY(0);
+    opacity: 1;
+}

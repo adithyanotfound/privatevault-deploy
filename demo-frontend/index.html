@@ -44,6 +44,7 @@
                 <span class="nav-logo">PrivateVault<span class="nav-logo-accent">.ai</span></span>
             </div>
             <div class="nav-links">
+                <a href="#decision-firewall" class="nav-link">Decision Firewall</a>
                 <a href="#governance" class="nav-link">Governance</a>
                 <a href="#botbook" class="nav-link">BotBook</a>
                 <a href="#lork" class="nav-link">LORK</a>
@@ -221,8 +222,93 @@
         </div>
     </section>
 
+    <!-- ─── DECISION FIREWALL ─── -->
+    <section id="decision-firewall" class="section section-alt">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">decision integrity engine</span>
+                <h2 class="section-title">Decision Firewall</h2>
+                <p class="section-desc">Proactive Integrity Before Execution. The missing upstream layer in agentic AI governance that forces explicit assumption checks and testing before an agent is allowed to act.</p>
+            </div>
+            
+            <div class="arch-layers" style="margin-bottom: 24px;">
+                <!-- Card 1: The Problem -->
+                <div class="arch-card">
+                    <div class="arch-card-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <path d="M14 3L25 21H3L14 3Z" stroke="var(--red)" stroke-width="1.5" stroke-linejoin="round"/>
+                            <path d="M14 10V16M14 19V19.5" stroke="var(--red)" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="arch-card-title">Why Agentic Systems Fail</h3>
+                    <p class="arch-card-role">The Missing Upstream Layer</p>
+                    <p class="arch-card-desc">Agents make autonomous decisions based on unstable assumptions causing errors that result in financial loss or compliance risk.</p>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Decisions based on unstable assumptions</div>
+                        <div class="arch-feature">Errors &rarr; financial loss, compliance risk</div>
+                        <div class="arch-feature">Current systems react after execution</div>
+                        <div class="arch-feature">No proactive upstream validation layer</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector" style="visibility:hidden">
+                    <div class="arch-connector-line"></div>
+                </div>
+                
+                <!-- Card 2: DIE -->
+                <div class="arch-card">
+                    <div class="arch-card-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <rect x="4" y="4" width="20" height="20" rx="3" stroke="var(--brand)" stroke-width="1.5"/>
+                            <path d="M9 14L13 18L19 10" stroke="var(--brand)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="arch-card-title">Decision Integrity Engine</h3>
+                    <p class="arch-card-role">Pre-Execution Validation</p>
+                    <p class="arch-card-desc">Acts as a decision firewall inside the PrivateVault runtime. Evaluates assumptions, stress tests contexts, and outputs execution gates with explicit conditions.</p>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Assumption extraction + confidence scoring</div>
+                        <div class="arch-feature">Context stress testing against edge cases</div>
+                        <div class="arch-feature">Stability scoring (0&ndash;1) and classification</div>
+                        <div class="arch-feature">Generates execution gates with conditions</div>
+                    </div>
+                </div>
+
+                <div class="arch-connector" style="visibility:hidden">
+                    <div class="arch-connector-line"></div>
+                </div>
+
+                <!-- Card 3: Business Impact -->
+                <div class="arch-card">
+                    <div class="arch-card-icon">
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <path d="M3 24L10 14L15 18L25 4" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M25 4V11M25 4H18" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="arch-card-title">Business Impact</h3>
+                    <p class="arch-card-role">The AI Firewall for Regulated Enterprises</p>
+                    <p class="arch-card-desc">Provides enterprise-grade controls, fintech-ready safeguards, cryptographic audit logs, and highly tunable parameters while achieving latency below 300ms.</p>
+                    <div class="arch-card-features">
+                        <div class="arch-feature">Blocks unsound decisions pre-execution</div>
+                        <div class="arch-feature">Prevent financial losses before they occur</div>
+                        <div class="arch-feature">Increase trust &amp; compliance with crypto audits</div>
+                        <div class="arch-feature">Tunable controls + strict human escalation</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel" style="margin-top:24px; text-align:center; padding: 24px;">
+                <h4 style="font-family: var(--font-mono); font-weight: 500; font-size: 14px; color: var(--brand); margin-bottom: 12px; letter-spacing: 0.1em; text-transform: uppercase;">Integration Flow</h4>
+                <p style="font-family: var(--font-mono); font-size: 13px; color: var(--tx-1); padding: 12px; background: var(--bg-0); border-radius: 4px; border: 1px solid var(--bd-2); display: inline-block;">
+                    User Intent <span style="color:var(--tx-3)">&rarr;</span> Intent Parser <span style="color:var(--tx-3)">&rarr;</span> <strong style="color:var(--brand)">DIE</strong> <span style="color:var(--tx-3)">&rarr;</span> Policy Engine <span style="color:var(--tx-3)">&rarr;</span> Execution <span style="color:var(--tx-3)">&rarr;</span> Audit Ledger
+                </p>
+            </div>
+        </div>
+    </section>
+
     <!-- ─── GOVERNANCE — 3-column ─── -->
-    <section id="governance" class="section section-alt">
+    <section id="governance" class="section">
         <div class="container">
             <div class="section-header">
                 <span class="section-tag">privatevault.ai</span>
@@ -658,6 +744,36 @@
         </div>
     </section>
 
+    <!-- ─── REQUEST DEMO ─── -->
+    <section id="request-demo" class="section">
+        <div class="container">
+            <div class="section-header" style="text-align: center;">
+                <span class="section-tag" style="justify-content: center; display: flex;">contact sales</span>
+                <h2 class="section-title">Request a Private Demo</h2>
+                <p class="section-desc" style="margin: 0 auto;">Speak with our enterprise solutions team to see PrivateVault in action.</p>
+            </div>
+            
+            <div class="panel" style="max-width: 500px; margin: 0 auto; padding: 32px 24px;">
+                <form id="demo-form" target="hidden_iframe" action="https://docs.google.com/forms/d/e/1FAIpQLSe3NRzrDTSevUZqZps4xVf3SPVP3QyV3uPOaGoVoZRP7X1isw/formResponse" method="POST" onsubmit="submitted=true;">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" name="entry.1789947739" class="form-control" required placeholder="Jane Doe">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">Work Email</label>
+                        <input type="email" name="entry.632226409" class="form-control" required placeholder="jane@company.com">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 24px;">
+                        <label class="form-label">Your Requirements</label>
+                        <textarea name="entry.1098764343" class="form-control" rows="4" placeholder="Tell us about your use case..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" style="padding: 12px; font-size: 14px; justify-content: center;">Request Demo</button>
+                </form>
+                <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof submitted !== 'undefined' && submitted) { showDemoToast(); }"></iframe>
+            </div>
+        </div>
+    </section>
+
     <!-- ─── FOOTER ─── -->
     <footer class="footer">
         <div class="container">
@@ -668,6 +784,7 @@
                 </div>
                 <div class="footer-links-group">
                     <h4 class="footer-group-title">Platform</h4>
+                    <a href="#decision-firewall" class="footer-link">Decision Firewall</a>
                     <a href="#governance" class="footer-link">PrivateVault.ai</a>
                     <a href="#botbook" class="footer-link">BotBook.dev</a>
                     <a href="#lork" class="footer-link">LORK Runtime</a>
@@ -686,7 +803,20 @@
         </div>
     </footer>
 
+    <!-- ─── DEMO TOAST ─── -->
+    <div id="demo-toast" class="toast hidden">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="toast-icon">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M22 4L12 14.01l-3-3" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="toast-content">
+            <h4 class="toast-title">Demo Requested</h4>
+            <p class="toast-desc">Our team will reach out to you shortly.</p>
+        </div>
+    </div>
+
     <script src="app.js"></script>
+    <script>var submitted = false;</script>
 </body>
 
 </html>
