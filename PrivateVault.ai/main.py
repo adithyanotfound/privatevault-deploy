@@ -48,14 +48,22 @@ class TransactionRequest(BaseModel):
     agent_id: str
     context: Optional[dict] = None
 
+class HumanApprovalRequest(BaseModel):
+    transaction_id: str
+    approved: bool
+    approver_name: str = "Human Reviewer"
+    reason: str = ""
+
 class VerificationResponse(BaseModel):
-    status: str
+    status: str          # ALLOW | REVIEW | BLOCK
     reason: str
     transaction_id: str
     timestamp: str
     node_version: str
     risk_score: float = 0.0
     merkle_hash: str = ""
+    policy_tier: str = ""           # auto_approve | human_review | hard_block
+    escalation: Optional[dict] = None
 
 class DriftRequest(BaseModel):
     declared: dict
@@ -75,32 +83,42 @@ class DriftResponse(BaseModel):
     metrics: List[dict]
     detection_time_ms: float
 
-# --- IN-MEMORY AUDIT LOG ---
+# --- IN-MEMORY STORES ---
 audit_entries = []
+pending_reviews = {}   # tx_id -> full transaction details awaiting human approval
+
+# --- POLICY TIER THRESHOLDS ---
+AUTO_APPROVE_LIMIT = 10_000    # < $10k  → auto-approve
+HUMAN_REVIEW_LIMIT = 25_000    # $10k–$25k  → human-in-the-loop
+# > $25k → hard block
 
 # --- SHADOW POLICY LOGIC (The Brain) ---
-# *** LOGIC UNCHANGED — same rules as original ***
-def check_policy(request: TransactionRequest) -> tuple[str, str]:
+def check_policy(request: TransactionRequest) -> tuple[str, str, str]:
     """
-    Deterministic rules engine.
-    In production, this would query a database or evaluating a smart contract.
+    3-Tier Deterministic Rules Engine.
+    Tier 1 (Auto-Approve):  amount < $10,000 + clean recipient + valid action
+    Tier 2 (Human Review):  $10,000 ≤ amount ≤ $25,000 → escalate to human
+    Tier 3 (Hard Block):    amount > $25,000 OR risky recipient OR invalid action
+    Returns: (status, reason, policy_tier)
     """
-    # RULE 1: Cap on unverified automated transfers
-    if request.amount > 10000:
-        return "BLOCK", "Amount exceeds automated authorization limit (k). Human Approval Required."
-
-    # RULE 2: Block known risky recipients
+    # RULE 1: Block known risky recipients (KYC — overrides everything)
     if "unknown" in request.recipient.lower() or "anon" in request.recipient.lower():
-        return "BLOCK", "Recipient identity cannot be verified (KYC Failure)."
+        return "BLOCK", "Recipient identity cannot be verified (KYC Failure).", "hard_block"
 
-    # RULE 3: Action Whitelist
+    # RULE 2: Action Whitelist (overrides amount tiers)
     valid_actions = ["transfer", "pay_invoice", "query_balance"]
-    # Allow tool.* actions (governed tool calls from orchestrator)
     if request.action not in valid_actions and not request.action.startswith("tool."):
-        return "BLOCK", f"Action '{request.action}' is not in the approved capabilities list."
+        return "BLOCK", f"Action '{request.action}' is not in the approved capabilities list.", "hard_block"
 
-    # Otherwise, safe
-    return "ALLOW", "Transaction within safe parameters."
+    # RULE 3: Amount-based 3-tier policy
+    if request.amount > HUMAN_REVIEW_LIMIT:
+        return "BLOCK", f"Amount ${request.amount:,.0f} exceeds hard limit of ${HUMAN_REVIEW_LIMIT:,}. Transaction rejected.", "hard_block"
+
+    if request.amount >= AUTO_APPROVE_LIMIT:
+        return "REVIEW", f"Amount ${request.amount:,.0f} is between ${AUTO_APPROVE_LIMIT:,}–${HUMAN_REVIEW_LIMIT:,}. Requires human approval.", "human_review"
+
+    # Tier 1: Safe — auto-approve
+    return "ALLOW", "Transaction within safe parameters. Auto-approved.", "auto_approve"
 
 def compute_risk_score(request: TransactionRequest) -> float:
     """Multi-factor risk scoring model.
@@ -208,14 +226,25 @@ def detect_drift(declared: dict, actual: dict) -> dict:
             })
             max_risk = escalate(max_risk, "HIGH")
         else:
+            # Special handling for sensitive fields
+            drift_type = "VALUE_CHANGE"
+            risk_level = "MEDIUM"
+            if key == "recipient":
+                risky = ["unknown", "anon", "offshore", "temp", "0x", "wallet"]
+                if any(r in str(actual_val).lower() for r in risky):
+                    drift_type = "RECIPIENT_SUBSTITUTION"
+                    risk_level = "HIGH"
+            elif key == "action":
+                drift_type = "ACTION_ESCALATION"
+                risk_level = "HIGH"
             metrics.append({
                 "field": key,
                 "declared_value": declared_val,
                 "actual_value": actual_val,
-                "drift_type": "VALUE_CHANGE",
+                "drift_type": drift_type,
                 "delta_percent": None
             })
-            max_risk = escalate(max_risk, "MEDIUM")
+            max_risk = escalate(max_risk, risk_level)
 
     has_drift = len(metrics) > 0
     policy_decision = "DENY" if max_risk in ("HIGH", "CRITICAL") else "ALLOW"
@@ -250,44 +279,109 @@ def health_check():
 @app.post("/api/v1/shadow_verify", response_model=VerificationResponse)
 async def shadow_verify(request: TransactionRequest):
     """
-    The Shadow Endpoint.
-    Agents send their intent here. We return ALLOW/BLOCK.
-    We do NOT execute the trade. We only validate the intent.
+    The Shadow Endpoint — 3-Tier Governance.
+    Tier 1: < $10k  → ALLOW  (auto-approve)
+    Tier 2: $10k-$25k → REVIEW (human-in-the-loop)
+    Tier 3: > $25k  → BLOCK  (hard block)
     """
     tx_id = str(uuid.uuid4())
-    status, reason = check_policy(request)
+    status, reason, policy_tier = check_policy(request)
     risk_score = compute_risk_score(request)
     timestamp = datetime.datetime.now().isoformat()
     merkle_hash = compute_merkle_hash(tx_id, status, timestamp)
 
+    # Build escalation details for REVIEW tier
+    escalation = None
+    if status == "REVIEW":
+        escalation = {
+            "type": "human_in_the_loop",
+            "required_role": "financial_approver",
+            "approval_url": "/api/v1/human_approve",
+            "timeout_minutes": 30,
+            "auto_action_on_timeout": "BLOCK",
+            "escalation_chain": ["Team Lead", "Finance Director", "CFO"],
+        }
+        pending_reviews[tx_id] = {
+            "transaction_id": tx_id, "timestamp": timestamp,
+            "agent_id": request.agent_id, "action": request.action,
+            "amount": request.amount, "recipient": request.recipient,
+            "risk_score": risk_score, "merkle_hash": merkle_hash,
+            "status": "PENDING_REVIEW", "policy_tier": policy_tier,
+        }
+
     # Log to audit
     entry = {
-        "transaction_id": tx_id,
-        "timestamp": timestamp,
-        "agent_id": request.agent_id,
-        "action": request.action,
-        "amount": request.amount,
-        "recipient": request.recipient,
-        "status": status,
-        "reason": reason,
-        "merkle_hash": merkle_hash,
-        "risk_score": risk_score
+        "transaction_id": tx_id, "timestamp": timestamp,
+        "agent_id": request.agent_id, "action": request.action,
+        "amount": request.amount, "recipient": request.recipient,
+        "status": status, "reason": reason,
+        "merkle_hash": merkle_hash, "risk_score": risk_score,
+        "policy_tier": policy_tier,
     }
     audit_entries.insert(0, entry)
+
+    tier_emoji = {"auto_approve": "✅", "human_review": "⏳", "hard_block": "🚫"}
     print(f"\n🔒 [PrivateVault] shadow_verify called")
     print(f"   Agent: {request.agent_id} | Action: {request.action} | Amount: ${request.amount:,.0f} | Recipient: {request.recipient}")
-    print(f"   → {status}: {reason} (risk: {risk_score})")
+    print(f"   → {tier_emoji.get(policy_tier,'?')} {status} [{policy_tier}]: {reason} (risk: {risk_score})")
     print(f"   TxID: {tx_id[:12]}... | Merkle: {merkle_hash[:24]}...")
+    if status == "REVIEW":
+        print(f"   ⏳ ESCALATED: Awaiting human approval. Pending reviews: {len(pending_reviews)}")
 
     return VerificationResponse(
-        status=status,
-        reason=reason,
-        transaction_id=tx_id,
-        timestamp=timestamp,
+        status=status, reason=reason,
+        transaction_id=tx_id, timestamp=timestamp,
         node_version="3.1.0-shadow",
-        risk_score=risk_score,
-        merkle_hash=merkle_hash,
+        risk_score=risk_score, merkle_hash=merkle_hash,
+        policy_tier=policy_tier, escalation=escalation,
     )
+
+@app.post("/api/v1/human_approve")
+async def human_approve(request: HumanApprovalRequest):
+    """Human-in-the-loop approval endpoint for REVIEW-tier transactions."""
+    tx_id = request.transaction_id
+    if tx_id not in pending_reviews:
+        raise HTTPException(status_code=404, detail=f"Transaction {tx_id} not found in pending reviews.")
+
+    review = pending_reviews.pop(tx_id)
+    approval_timestamp = datetime.datetime.now().isoformat()
+    approval_hash = compute_merkle_hash(tx_id, "HUMAN_" + ("APPROVED" if request.approved else "REJECTED"), approval_timestamp)
+
+    new_status = "ALLOW" if request.approved else "BLOCK"
+    result = {
+        "transaction_id": tx_id,
+        "original_amount": review["amount"],
+        "original_agent": review["agent_id"],
+        "human_decision": "APPROVED" if request.approved else "REJECTED",
+        "final_status": new_status,
+        "approver": request.approver_name,
+        "approval_reason": request.reason or ("Human reviewer approved the transaction." if request.approved else "Human reviewer rejected the transaction."),
+        "approval_timestamp": approval_timestamp,
+        "approval_hash": approval_hash,
+        "original_merkle_hash": review["merkle_hash"],
+        "chain_hash": compute_merkle_hash(review["merkle_hash"], approval_hash, approval_timestamp),
+    }
+
+    audit_entries.insert(0, {
+        "transaction_id": tx_id, "timestamp": approval_timestamp,
+        "agent_id": review["agent_id"], "action": review["action"],
+        "amount": review["amount"], "recipient": review["recipient"],
+        "status": new_status,
+        "reason": f"Human {result['human_decision']}: {result['approval_reason']}",
+        "merkle_hash": result["chain_hash"], "risk_score": review["risk_score"],
+        "policy_tier": "human_review_completed", "approver": request.approver_name,
+    })
+
+    print(f"\n👤 [PrivateVault] Human Approval")
+    print(f"   TxID: {tx_id[:12]}... | Decision: {result['human_decision']}")
+    print(f"   Approver: {request.approver_name} | Amount: ${review['amount']:,.0f}")
+    print(f"   Chain Hash: {result['chain_hash'][:24]}...")
+    return result
+
+@app.get("/api/v1/pending_reviews")
+async def get_pending_reviews():
+    """Return all transactions pending human review."""
+    return list(pending_reviews.values())
 
 @app.post("/api/v1/drift_detect")
 async def drift_detect(request: DriftRequest):
@@ -300,7 +394,6 @@ async def get_audit_log(limit: int = 50):
     """Return audit log entries. Uses mock data if no live entries exist."""
     if len(audit_entries) > 0:
         return audit_entries[:limit]
-    # Fall back to mock data
     return load_mock("audit_log.json")[:limit]
 
 @app.get("/api/v1/drift_scenarios")

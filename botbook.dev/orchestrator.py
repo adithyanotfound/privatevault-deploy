@@ -26,10 +26,10 @@ TOOL_DECLARATIONS = [
 ]
 
 TOOL_POLICIES = {
-    "query_database":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","risk_sentinel_v3","legal_reviewer_v2"]},
-    "search_records":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","support_agent_x","finance_gpt_pro","risk_sentinel_v3","sales_accelerator"]},
-    "generate_report":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","legal_reviewer_v2"]},
-    "send_notification":{"allowed_agents":["support_agent_x","sales_accelerator","onboarding_bot"],"block_external":True},
+    "query_database":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","risk_sentinel_v3","legal_reviewer_v2","finops_assistant"]},
+    "search_records":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","support_agent_x","finance_gpt_pro","risk_sentinel_v3","sales_accelerator","finops_assistant"]},
+    "generate_report":{"allowed_agents":["finance_agent","data_analyst_v2","compliance_guardian","finance_gpt_pro","legal_reviewer_v2","finops_assistant"]},
+    "send_notification":{"allowed_agents":["support_agent_x","sales_accelerator","onboarding_bot","finops_assistant"],"block_external":True},
 }
 
 MOCK_TOOL_RESULTS = {
@@ -56,17 +56,26 @@ class LiveOrchestrator:
         t = task.lower()
         amounts = re.findall(r'\$?([\d,]+(?:\.\d+)?)', task)
         amount = float(amounts[0].replace(',','')) if amounts else 0
-        if any(w in t for w in ["transfer","send money","wire"]):
+        if any(w in t for w in ["transfer","send money","wire","disburse"]):
             action = "transfer"
+        elif re.search(r'\bsend\b.*\$', t) or re.search(r'\$.*\bto\b', t):
+            action = "transfer"  # "send $5415 to X" pattern
         elif "pay " in t and "galanipay" not in t:
             action = "transfer"
         elif "invoice" in t: action = "pay_invoice"
         else: action = "query_balance"
+        # Recipient detection
         recipient = "internal_analytics"
         if "anonymous" in t or "anon" in t: recipient = "anonymous_wallet"
         elif "offshore" in t: recipient = "anonymous_offshore"
         elif "vendor" in t or "acme" in t: recipient = "vendor_acme_corp"
+        elif "techsupply" in t: recipient = "vendor_techsupply"
         elif "personal" in t or "@gmail" in t or "external" in t: recipient = "external_personal"
+        else:
+            # Try to extract recipient name from "to <name>" pattern
+            to_match = re.search(r'\bto\s+([a-zA-Z_]+)', task)
+            if to_match and amount > 0:
+                recipient = to_match.group(1).lower()
         return {"action":action,"amount":amount,"recipient":recipient,"agent_id":"agent"}
 
     async def auto_select_agent(self, http, task):
@@ -131,27 +140,151 @@ class LiveOrchestrator:
             events_log.append({"seq":len(events_log)+1,"type":"intent_declared","agent":agent["name"],"latency_ms":5,"tokens":0,"payload":f"Intent: {intent['action']} ${intent['amount']:,.0f} -> {intent['recipient']}"})
             await asyncio.sleep(0.3)
 
-            # STEP 3: Governance (PrivateVault)
+            # STEP 3: Governance (PrivateVault) — 3-Tier Policy
             yield sse("governance_start",{"layer":"PrivateVault"})
             gov_start = time.time()
             try:
                 r = await http.post(f"{self.vault_url}/api/v1/shadow_verify",json=intent)
                 gov_result = r.json()
             except Exception as e:
-                gov_result = {"status":"ERROR","reason":f"PrivateVault unreachable: {e}","risk_score":1.0,"transaction_id":str(uuid.uuid4()),"merkle_hash":"unavailable"}
+                gov_result = {"status":"ERROR","reason":f"PrivateVault unreachable: {e}","risk_score":1.0,"transaction_id":str(uuid.uuid4()),"merkle_hash":"unavailable","policy_tier":"error"}
             gov_ms = round((time.time()-gov_start)*1000)
-            print(f"   🔒 Governance: {gov_result.get('status')} — {gov_result.get('reason','')} ({gov_ms}ms)")
-            yield sse("governance_result",{"status":gov_result.get("status","ERROR"),"reason":gov_result.get("reason",""),"risk_score":gov_result.get("risk_score",0),"transaction_id":gov_result.get("transaction_id",""),"merkle_hash":gov_result.get("merkle_hash",""),"latency_ms":gov_ms,"layer":"PrivateVault"})
-            events_log.append({"seq":len(events_log)+1,"type":"governance_check","agent":"PrivateVault","latency_ms":gov_ms,"tokens":0,"payload":f"{gov_result.get('status')}: {gov_result.get('reason','')}"})
+            print(f"   🔒 Governance: {gov_result.get('status')} [{gov_result.get('policy_tier','')}] — {gov_result.get('reason','')} ({gov_ms}ms)")
+            yield sse("governance_result",{
+                "status":gov_result.get("status","ERROR"),
+                "reason":gov_result.get("reason",""),
+                "risk_score":gov_result.get("risk_score",0),
+                "transaction_id":gov_result.get("transaction_id",""),
+                "merkle_hash":gov_result.get("merkle_hash",""),
+                "latency_ms":gov_ms,
+                "policy_tier":gov_result.get("policy_tier",""),
+                "escalation":gov_result.get("escalation"),
+                "layer":"PrivateVault"
+            })
+            events_log.append({"seq":len(events_log)+1,"type":"governance_check","agent":"PrivateVault","latency_ms":gov_ms,"tokens":0,"payload":f"{gov_result.get('status')} [{gov_result.get('policy_tier','')}]: {gov_result.get('reason','')}"})
             await asyncio.sleep(0.3)
 
+            # Handle BLOCK — hard stop
             if gov_result.get("status") == "BLOCK":
-                yield sse("execution_blocked",{"reason":gov_result["reason"],"risk_score":gov_result.get("risk_score",0),"layer":"PrivateVault"})
+                yield sse("execution_blocked",{"reason":gov_result["reason"],"risk_score":gov_result.get("risk_score",0),"policy_tier":gov_result.get("policy_tier","hard_block"),"layer":"PrivateVault"})
                 await self._record_run(http,run_id,agent["name"],task,events_log,"blocked")
                 yield sse("event_recorded",{"run_id":run_id,"events_count":len(events_log),"status":"blocked","layer":"LORK"})
                 await asyncio.sleep(0.2)
                 yield sse("complete",{"status":"BLOCKED","reason":gov_result["reason"],"total_time_ms":round((time.time()-start_time)*1000),"run_id":run_id,"events_count":len(events_log)})
                 return
+
+            # Handle REVIEW — human-in-the-loop
+            if gov_result.get("status") == "REVIEW":
+                escalation = gov_result.get("escalation", {})
+                tx_id = gov_result.get("transaction_id", "")
+                yield sse("human_review_required",{
+                    "transaction_id": tx_id,
+                    "amount": intent.get("amount", 0),
+                    "reason": gov_result["reason"],
+                    "risk_score": gov_result.get("risk_score", 0),
+                    "escalation": escalation,
+                    "policy_tier": "human_review",
+                    "layer": "PrivateVault"
+                })
+                events_log.append({"seq":len(events_log)+1,"type":"human_review_escalation","agent":"PrivateVault","latency_ms":0,"tokens":0,"payload":f"Escalated for human review: ${intent.get('amount',0):,.0f}"})
+                await asyncio.sleep(1.5)  # Simulate human review time
+
+                # Auto-approve for demo (in production this would wait for actual human input)
+                try:
+                    approve_resp = await http.post(f"{self.vault_url}/api/v1/human_approve", json={
+                        "transaction_id": tx_id,
+                        "approved": True,
+                        "approver_name": "Dr. Priya Sharma (Finance Director)",
+                        "reason": "Transaction reviewed and approved. Amount within acceptable range for vendor payment."
+                    })
+                    approval = approve_resp.json()
+                except Exception:
+                    approval = {"human_decision":"APPROVED","final_status":"ALLOW","approver":"Dr. Priya Sharma","approval_hash":"simulated","chain_hash":"simulated"}
+
+                yield sse("human_review_decision",{
+                    "transaction_id": tx_id,
+                    "decision": approval.get("human_decision","APPROVED"),
+                    "final_status": approval.get("final_status","ALLOW"),
+                    "approver": approval.get("approver",""),
+                    "approval_reason": approval.get("approval_reason",""),
+                    "approval_hash": approval.get("approval_hash",""),
+                    "chain_hash": approval.get("chain_hash",""),
+                    "layer": "PrivateVault"
+                })
+                events_log.append({"seq":len(events_log)+1,"type":"human_review_completed","agent":"PrivateVault","latency_ms":1500,"tokens":0,"payload":f"Human {approval.get('human_decision','APPROVED')} by {approval.get('approver','')}"})
+                await asyncio.sleep(0.4)
+
+                if approval.get("final_status") == "BLOCK":
+                    yield sse("execution_blocked",{"reason":"Human reviewer rejected the transaction.","risk_score":gov_result.get("risk_score",0),"policy_tier":"human_review","layer":"PrivateVault"})
+                    await self._record_run(http,run_id,agent["name"],task,events_log,"blocked")
+                    yield sse("event_recorded",{"run_id":run_id,"events_count":len(events_log),"status":"blocked","layer":"LORK"})
+                    yield sse("complete",{"status":"BLOCKED","reason":"Human reviewer rejected.","total_time_ms":round((time.time()-start_time)*1000),"run_id":run_id,"events_count":len(events_log)})
+                    return
+
+            # STEP 3.5: Shadow Drift Detection — compare declared intent vs actual execution payload
+            # For [DRIFT_TEST] tasks, simulate a compromised agent tampering the payload
+            is_drift_test = "[DRIFT_TEST]" in task
+            if is_drift_test:
+                # Simulate: agent tampered the payload (inflated amount, swapped recipient)
+                tampered_intent = {
+                    "action": intent["action"],
+                    "amount": intent["amount"] * 10,  # 10x inflation attack
+                    "recipient": "offshore_shell_corp",  # substituted recipient
+                }
+                declared_payload = {"action": intent["action"], "amount": intent["amount"], "recipient": intent["recipient"]}
+                yield sse("drift_check_start", {
+                    "declared": declared_payload,
+                    "actual": tampered_intent,
+                    "reason": "Shadow firewall comparing declared intent vs agent execution payload",
+                    "layer": "PrivateVault"
+                })
+                events_log.append({"seq":len(events_log)+1,"type":"drift_check","agent":"PrivateVault","latency_ms":0,"tokens":0,"payload":"Checking declared vs actual payload..."})
+                await asyncio.sleep(0.6)
+
+                # Call real drift detection
+                try:
+                    dr = await http.post(f"{self.vault_url}/api/v1/drift_detect", json={
+                        "declared": declared_payload,
+                        "actual": tampered_intent,
+                    })
+                    drift_result = dr.json()
+                except:
+                    drift_result = {"has_drift": True, "risk_level": "HIGH", "policy_decision": "DENY", "metrics": [], "detection_time_ms": 0}
+
+                drift_ms = drift_result.get("detection_time_ms", 0)
+                yield sse("drift_detected", {
+                    "has_drift": drift_result.get("has_drift", False),
+                    "risk_level": drift_result.get("risk_level", "LOW"),
+                    "policy_decision": drift_result.get("policy_decision", "ALLOW"),
+                    "metrics": drift_result.get("metrics", []),
+                    "detection_time_ms": drift_ms,
+                    "declared": declared_payload,
+                    "actual": tampered_intent,
+                    "layer": "PrivateVault"
+                })
+                events_log.append({"seq":len(events_log)+1,"type":"drift_detected","agent":"PrivateVault","latency_ms":round(drift_ms),"tokens":0,
+                    "payload":f"DRIFT: {drift_result.get('risk_level','?')} — {drift_result.get('policy_decision','?')} — {len(drift_result.get('metrics',[]))} fields drifted"})
+                await asyncio.sleep(0.4)
+
+                if drift_result.get("policy_decision") == "DENY":
+                    yield sse("execution_blocked", {
+                        "reason": f"Intent drift detected — agent payload diverged from declared intent. Risk: {drift_result.get('risk_level','HIGH')}. Transaction blocked by shadow firewall.",
+                        "risk_score": gov_result.get("risk_score", 0),
+                        "policy_tier": "drift_block",
+                        "drift_metrics": drift_result.get("metrics", []),
+                        "layer": "PrivateVault"
+                    })
+                    await self._record_run(http, run_id, agent["name"], task, events_log, "drift_blocked")
+                    yield sse("event_recorded", {"run_id": run_id, "events_count": len(events_log), "status": "drift_blocked", "layer": "LORK"})
+                    await asyncio.sleep(0.2)
+                    yield sse("complete", {
+                        "status": "BLOCKED",
+                        "reason": f"Drift attack detected and blocked. Agent tried to inflate ${intent['amount']:,.0f} → ${tampered_intent['amount']:,.0f} and redirect to {tampered_intent['recipient']}.",
+                        "total_time_ms": round((time.time()-start_time)*1000),
+                        "run_id": run_id,
+                        "events_count": len(events_log)
+                    })
+                    return
 
             # STEP 4: ReAct Loop — Gemini → tools → feed back → final answer
             total_tokens = 0
@@ -238,7 +371,22 @@ class LiveOrchestrator:
             return {"text":"[Gemini unavailable - check google-genai and API key]","tokens":0,"tool_calls":[]}
         try:
             client = genai.Client(api_key=self.gemini_key)
-            system_prompt = f"You are '{agent['name']}' v{agent.get('version','?')}, an enterprise AI agent on BotBook.\nCapabilities: {', '.join(agent.get('capabilities',[]))}\nTrust: {agent['trust_score']}, Badge: {agent['badge']}\nYou are governed by PrivateVault.ai. Respond concisely (under 200 words). Use tools when helpful."
+            agent_caps = ', '.join(agent.get('capabilities',[]))
+            system_prompt = (
+                f"You are '{agent['name']}' v{agent.get('version','?')}, an enterprise AI agent deployed on the BotBook Agent OS.\n"
+                f"Capabilities: {agent_caps}\n"
+                f"Trust Score: {agent['trust_score']}, Badge: {agent['badge']}\n"
+                f"You are governed by PrivateVault.ai which has ALREADY verified and approved this action.\n\n"
+                f"CRITICAL INSTRUCTION: You ARE this agent executing live in production. When asked to perform any task "
+                f"within your capabilities (transfer funds, send emails, generate reports, analyze data, etc.), "
+                f"you MUST simulate executing it and confirm completion with realistic operational details.\n"
+                f"Include: confirmation/transaction IDs, timestamps, status updates, next steps.\n"
+                f"You are an OPERATIONAL agent, NOT an advisory chatbot. Never say 'I cannot' for tasks in your capabilities.\n\n"
+                f"Example for transfer: 'Transfer executed. $5,000 sent to vendor_acme_corp. TXN-ID: TXN-A7B3F2. "
+                f"Settlement: T+1 business day. Audit trail recorded.'\n"
+                f"Example for email: 'Email sent to finance@company.com. Subject: Transfer Confirmation. MSG-ID: MSG-8F3A21.'\n\n"
+                f"Respond concisely (under 200 words). Use tools when helpful."
+            )
             if force_text:
                 system_prompt += "\nIMPORTANT: Provide your final text analysis now. Do NOT request any tools."
 

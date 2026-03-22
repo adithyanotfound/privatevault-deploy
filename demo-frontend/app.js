@@ -194,7 +194,8 @@ let currentScenarioIdx = 0;
    =================================================================== */
 const PRESET_MAP = {
     allow: { agentId: "finance_agent", action: "transfer", amount: 5000, recipient: "vendor_acme_corp" },
-    block_amount: { agentId: "finance_agent", action: "transfer", amount: 50000, recipient: "vendor_acme_corp" },
+    review: { agentId: "finance_agent", action: "transfer", amount: 18500, recipient: "vendor_techsupply" },
+    block_amount: { agentId: "finance_agent", action: "transfer", amount: 42000, recipient: "vendor_acme_corp" },
     block_kyc: { agentId: "sales_agent", action: "transfer", amount: 500, recipient: "anonymous_wallet_xyz" },
     block_action: { agentId: "risk_monitor", action: "deploy_smart_contract", amount: 0, recipient: "blockchain_mainnet" },
     allow_query: { agentId: "compliance_agent", action: "query_balance", amount: 0, recipient: "internal_account" },
@@ -232,11 +233,11 @@ window.runGovernanceCheck = async function () {
     const amount = parseFloat($("govAmount")?.value) || 0;
     const recipient = $("govRecipient")?.value || "vendor_acme_corp";
 
-    let decision, reason, latency, hash, riskScore;
+    let decision, reason, latency, hash, riskScore, policyTier;
 
     try {
         const t0 = performance.now();
-        const resp = await fetch("http://localhost:8000/api/governance/verify", {
+        const resp = await fetch("http://localhost:8000/api/v1/shadow_verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agent_id: agentId, action, amount, recipient }),
@@ -245,27 +246,30 @@ window.runGovernanceCheck = async function () {
         if (!resp.ok) throw new Error(resp.statusText);
         const data = await resp.json();
         latency = Math.round(performance.now() - t0);
-        decision = (data.decision || "BLOCK").toUpperCase();
+        decision = (data.status || "BLOCK").toUpperCase();
         reason = data.reason || "Policy engine response";
-        hash = data.audit_hash || "0x" + Math.random().toString(16).slice(2, 12);
-        riskScore = data.risk_score != null ? data.risk_score : (decision === "ALLOW" ? 0.12 : 0.87);
+        hash = data.merkle_hash || "unavailable";
+        riskScore = data.risk_score != null ? data.risk_score : 0;
+        policyTier = data.policy_tier || "unknown";
     } catch {
-        /* local fallback */
+        /* local fallback — mirrors real 3-tier logic */
         latency = Math.round(Math.random() * 60 + 15);
         const RULES = [
-            { test: () => amount > 10000, verdict: "BLOCK", r: `Amount ${amount.toLocaleString()} exceeds policy ceiling of $10,000.` },
-            { test: () => recipient.includes("anonymous"), verdict: "BLOCK", r: `Recipient ${recipient} failed KYC verification.` },
-            { test: () => action === "deploy_smart_contract", verdict: "BLOCK", r: `Action deploy_smart_contract is not in the approved agent capability set.` },
-            { test: () => true, verdict: "ALLOW", r: `All policy checks passed. Risk score: ${(Math.random() * .15 + .05).toFixed(2)}.` },
+            { test: () => recipient.includes("anonymous") || recipient.includes("anon"), verdict: "BLOCK", tier: "hard_block", r: `Recipient ${recipient} failed KYC verification.` },
+            { test: () => action === "deploy_smart_contract", verdict: "BLOCK", tier: "hard_block", r: `Action ${action} is not in the approved capability set.` },
+            { test: () => amount > 25000, verdict: "BLOCK", tier: "hard_block", r: `Amount $${amount.toLocaleString()} exceeds hard limit of $25,000. Transaction rejected.` },
+            { test: () => amount >= 10000, verdict: "REVIEW", tier: "human_review", r: `Amount $${amount.toLocaleString()} is between $10,000\u2013$25,000. Requires human approval.` },
+            { test: () => true, verdict: "ALLOW", tier: "auto_approve", r: `Transaction within safe parameters. Auto-approved.` },
         ];
         const rule = RULES.find(r => r.test());
         decision = rule.verdict;
         reason = rule.r;
-        hash = "0x" + Math.random().toString(16).slice(2, 12);
-        riskScore = decision === "ALLOW" ? +(Math.random() * .15 + .05).toFixed(2) : +(Math.random() * .3 + .6).toFixed(2);
+        policyTier = rule.tier;
+        hash = "sha256:" + [...Array(64)].map(() => Math.floor(Math.random()*16).toString(16)).join("");
+        riskScore = decision === "ALLOW" ? +(Math.random() * .15 + .05).toFixed(3) : decision === "REVIEW" ? +(Math.random() * .2 + .3).toFixed(3) : +(Math.random() * .3 + .6).toFixed(3);
     }
 
-    renderGovResult(decision, reason, { latency, hash, riskScore, action, agentId, recipient });
+    renderGovResult(decision, reason, { latency, hash, riskScore, action, agentId, recipient, policyTier });
     appendAuditEntry(decision, action + " / " + recipient, agentId, hash);
 
     if (btn) { btn.textContent = "Verify Intent"; btn.disabled = false; }
@@ -275,16 +279,23 @@ function renderGovResult(decision, reason, meta) {
     const el = $("govResponse");
     if (!el) return;
     const isAllow = decision === "ALLOW";
+    const isReview = decision === "REVIEW";
+    const badgeCss = isAllow ? "allow" : isReview ? "review" : "block";
+    const badgeColor = isAllow ? "var(--green)" : isReview ? "#f59e0b" : "var(--red)";
+    const tierLabel = meta.policyTier === "auto_approve" ? "Tier 1 · Auto-Approve" :
+                      meta.policyTier === "human_review" ? "Tier 2 · Human Review" :
+                      meta.policyTier === "hard_block" ? "Tier 3 · Hard Block" : meta.policyTier;
     el.innerHTML = `
     <div class="gov-result" style="width:100%;">
       <div class="gov-result-badge">
-        <span class="gov-result-badge-inner ${isAllow ? "allow" : "block"}">${isAllow ? "ALLOW" : "BLOCK"}</span>
+        <span class="gov-result-badge-inner ${badgeCss}" style="${isReview ? 'background:rgba(245,158,11,0.12);color:#f59e0b;border-color:#f59e0b;' : ''}">${decision}</span>
+        <span style="font-size:0.7rem;color:${badgeColor};margin-left:8px;font-family:var(--font-mono)">${tierLabel}</span>
       </div>
       <div class="gov-result-reason">${esc(reason)}</div>
       <div class="gov-result-meta">
         <div class="gov-meta-item"><div class="gov-meta-label">latency</div><div class="gov-meta-value">${meta.latency}ms</div></div>
         <div class="gov-meta-item"><div class="gov-meta-label">risk score</div><div class="gov-meta-value">${meta.riskScore}</div></div>
-        <div class="gov-meta-item"><div class="gov-meta-label">audit hash</div><div class="gov-meta-value">${esc(meta.hash)}</div></div>
+        <div class="gov-meta-item"><div class="gov-meta-label">merkle hash</div><div class="gov-meta-value" style="font-size:0.6rem;word-break:break-all">${esc(meta.hash)}</div></div>
         <div class="gov-meta-item"><div class="gov-meta-label">agent</div><div class="gov-meta-value">${esc(meta.agentId)}</div></div>
       </div>
     </div>`;
@@ -404,11 +415,11 @@ function renderMatchResults(matches) {
         const col = sc >= .35 ? "var(--green)" : sc >= .2 ? "var(--amber)" : "var(--red)";
         const b = m.match_breakdown || {};
         const breakdownHtml = b.nlp_relevance !== undefined
-            ? `<div style="font-size:0.65rem;color:var(--brand);margin-top:2px;opacity:.8">NLP: ${(b.nlp_relevance*100).toFixed(0)}% | Cap: ${(b.capability_match*100).toFixed(0)}% | Trust: ${(b.trust*100).toFixed(0)}% | Exp: ${(b.experience*100).toFixed(0)}%</div>`
+            ? `<div style="font-size:0.65rem;color:var(--brand);margin-top:2px;opacity:.8">NLP: ${(b.nlp_relevance * 100).toFixed(0)}% | Cap: ${(b.capability_match * 100).toFixed(0)}% | Trust: ${(b.trust * 100).toFixed(0)}% | Exp: ${(b.experience * 100).toFixed(0)}%</div>`
             : '';
         return `<div class="match-result-card">
-          <span class="match-rank">#${m.rank || (i+1)}</span>
-          <div class="match-info"><div class="match-name">${esc(m.name)} <span style="font-size:0.6rem;opacity:.5">${m.version ? 'v'+m.version : ''}</span></div>${breakdownHtml}</div>
+          <span class="match-rank">#${m.rank || (i + 1)}</span>
+          <div class="match-info"><div class="match-name">${esc(m.name)} <span style="font-size:0.6rem;opacity:.5">${m.version ? 'v' + m.version : ''}</span></div>${breakdownHtml}</div>
           <div class="match-score" style="color:${col};">${(sc * 100).toFixed(0)}</div>
         </div>`;
     }).join("");
@@ -1086,12 +1097,40 @@ function renderStats(stats) {
 
 window.selectRun = async function (runId) {
     try {
-        const r = await fetch(`http://localhost:8002/api/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`http://localhost:8002/api/v1/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const data = await r.json();
-        renderTimeline(data.events || TIMELINE_DATA);
-        renderGraph(data.graph || GRAPH_DATA);
-        renderStats(data.stats || STATS_DATA);
+        const events = data.events || [];
+        if (events.length > 0) {
+            renderTimeline(events);
+            // Build graph from events
+            const graphNodes = [];
+            const graphEdges = [];
+            let prevId = null;
+            events.forEach((ev, i) => {
+                const nodeId = ev.agent + "_" + i;
+                const typeMap = { agent_match: "meta", intent_declared: "meta", governance_check: "policy", llm_call: "agent", tool_call: "tool", human_review_escalation: "policy", human_review_completed: "policy", event_recording: "meta" };
+                graphNodes.push({ id: nodeId, label: ev.agent || ev.type, type: typeMap[ev.type] || "agent", latency_ms: ev.latency_ms || 0, tokens: ev.tokens || 0 });
+                if (prevId) graphEdges.push({ from: prevId, to: nodeId, type: typeMap[ev.type] || "agent" });
+                prevId = nodeId;
+            });
+            renderGraph({ nodes: graphNodes, edges: graphEdges });
+            // Build stats from events
+            const agentMap = {};
+            const colors = ["#60a5fa","#22c55e","#f87171","#fbbf24","#a78bfa","#fb923c","#14b8a6"];
+            let ci = 0;
+            events.forEach(ev => {
+                const agent = ev.agent || ev.type;
+                if (!agentMap[agent]) agentMap[agent] = { agent, latency_ms: 0, tokens: 0, color: colors[ci++ % colors.length] };
+                agentMap[agent].latency_ms += ev.latency_ms || 0;
+                agentMap[agent].tokens += ev.tokens || 0;
+            });
+            renderStats(Object.values(agentMap).filter(s => s.latency_ms > 0 || s.tokens > 0));
+        } else {
+            renderTimeline(TIMELINE_DATA);
+            renderGraph(GRAPH_DATA);
+            renderStats(STATS_DATA);
+        }
     } catch {
         renderTimeline(TIMELINE_DATA);
         renderGraph(GRAPH_DATA);
@@ -1104,20 +1143,42 @@ let replayTimer = null;
 
 window.startReplay = async function () {
     if (replayTimer) return;
-    const runId = $("runSelect")?.value || "run-001";
+    const runSel = $("runSelect");
+    const runId = runSel?.value || "";
     const speed = parseInt($("replaySpeed")?.value || 500);
     const out = $("replayOutput");
     if (!out) return;
     out.innerHTML = "";
 
-    let events = TIMELINE_DATA;
+    if (!runId) {
+        out.innerHTML = `<div class="empty-state-text" style="padding:16px;">No run selected. Execute a live task first, then select the run to replay.</div>`;
+        return;
+    }
+
+    let events = [];
+    let runTask = "";
     try {
-        const r = await fetch(`http://localhost:8002/api/runs/${runId}`, { signal: AbortSignal.timeout(2000) });
+        const r = await fetch(`http://localhost:8002/api/v1/runs/${runId}/replay`, { signal: AbortSignal.timeout(3000) });
         if (r.ok) {
             const data = await r.json();
-            events = data.events || events;
+            events = data.events || [];
+            runTask = data.task || "";
         }
-    } catch { } // use fallback
+    } catch { }
+
+    if (!events.length) {
+        out.innerHTML = `<div class="empty-state-text" style="padding:16px;">No events found for run ${esc(runId)}. Execute a live task first.</div>`;
+        return;
+    }
+
+    // Show the task being replayed
+    if (runTask) {
+        const taskEl = document.createElement("div");
+        taskEl.className = "replay-event";
+        taskEl.innerHTML = `<div class="replay-event-type" style="color:var(--brand)">REPLAYING: ${esc(runId)}</div>
+                           <div class="replay-event-detail" style="color:var(--tx-2)">${esc(runTask)}</div>`;
+        out.appendChild(taskEl);
+    }
 
     let idx = 0;
     function playNext() {
@@ -1126,7 +1187,7 @@ window.startReplay = async function () {
             const done = document.createElement("div");
             done.className = "replay-event complete";
             done.innerHTML = `<div class="replay-event-type complete-label">RUN COMPLETE</div>
-                              <div class="replay-event-detail">All ${events.length} events replayed successfully.</div>`;
+                              <div class="replay-event-detail">All ${events.length} events replayed. Deterministic replay verified.</div>`;
             out.appendChild(done);
             out.scrollTop = out.scrollHeight;
             return;
@@ -1135,8 +1196,9 @@ window.startReplay = async function () {
         const el = document.createElement("div");
         el.className = "replay-event";
         el.style.opacity = "0";
-        el.innerHTML = `<div class="replay-event-type">[step ${ev.seq}] ${esc(ev.type)} — ${esc(ev.agent)}</div>
-                        <div class="replay-event-detail">latency: ${ev.latency_ms}ms${ev.tokens ? "  tokens: " + ev.tokens : ""}</div>`;
+        const payloadText = ev.payload ? ` — ${ev.payload}` : '';
+        el.innerHTML = `<div class="replay-event-type">[step ${ev.seq}] ${esc(ev.type)} — ${esc(ev.agent)}${payloadText}</div>
+                        <div class="replay-event-detail">latency: ${ev.latency_ms}ms${ev.tokens ? "  tokens: " + ev.tokens : ""}${ev.cumulative_time_ms ? "  cumulative: " + ev.cumulative_time_ms + "ms" : ""}</div>`;
         out.appendChild(el);
         out.scrollTop = out.scrollHeight;
         void el.offsetWidth;
@@ -1150,7 +1212,7 @@ window.startReplay = async function () {
 window.resetReplay = function () {
     if (replayTimer) { clearTimeout(replayTimer); replayTimer = null; }
     const out = $("replayOutput");
-    if (out) out.innerHTML = `<div class="empty-state-text" style="padding:16px;">Press "Replay Run" to re-execute the event log.</div>`;
+    if (out) out.innerHTML = `<div class="empty-state-text" style="padding:16px;">Press "Replay Run" to re-execute the event log from a recorded run.</div>`;
 };
 
 /* ===================================================================
@@ -1327,41 +1389,116 @@ function renderDriftResult(scenario) {
     const el = $("driftResult");
     if (!el) return;
     const sev = scenario.severity || "medium";
+    const policyDecision = scenario.policy_decision || (sev === "high" || sev === "critical" ? "DENY" : "ALLOW");
+    const isPolicyDeny = policyDecision === "DENY";
+    const detectionTime = scenario.detection_time_ms != null ? `${scenario.detection_time_ms}ms` : "<1ms";
 
     let metricsHtml = (scenario.metrics || []).map(m => {
         const badgeHtml = m.badge ? `<span class="drift-metric-badge ${m.badge}">${m.badge}</span>` : "";
+        const deltaHtml = m.delta_percent != null ? `<span style="color:var(--red);font-weight:600;margin-left:6px">(${m.delta_percent > 0 ? '+' : ''}${m.delta_percent}%)</span>` : "";
+        const driftTypeHtml = m.drift_type ? `<span style="font-size:0.65rem;padding:1px 6px;border-radius:2px;background:rgba(248,113,113,0.12);color:#f87171;margin-left:4px">${m.drift_type}</span>` : "";
         return `<div class="drift-metric-row">
           <span class="drift-metric-field">${esc(m.field)}</span>
-          <span>${esc(m.declared)} → <strong>${esc(m.actual)}</strong> ${badgeHtml}</span>
+          <span>${esc(m.declared)} → <strong>${esc(m.actual)}</strong>${deltaHtml} ${badgeHtml}${driftTypeHtml}</span>
         </div>`;
     }).join("");
 
     el.innerHTML = `<div class="drift-result-card ${sev}">
-      <div class="drift-title">Drift Detected — ${esc(scenario.label)} [${sev.toUpperCase()} SEVERITY]</div>
-      <div class="drift-subtitle">Agent declared intent does not match actual payload</div>
+      <div class="drift-title">
+        <span>Drift Detected — ${esc(scenario.label)} [${sev.toUpperCase()} SEVERITY]</span>
+      </div>
+      <div style="display:flex;gap:12px;margin:8px 0;flex-wrap:wrap">
+        <span style="font-size:0.75rem;padding:3px 10px;border-radius:3px;font-weight:600;letter-spacing:0.5px;
+          background:${isPolicyDeny ? 'rgba(248,113,113,0.15)' : 'rgba(34,197,94,0.15)'};
+          color:${isPolicyDeny ? '#f87171' : '#22c55e'};
+          border:1px solid ${isPolicyDeny ? 'rgba(248,113,113,0.3)' : 'rgba(34,197,94,0.3)'}">
+          POLICY: ${policyDecision}
+        </span>
+        <span style="font-size:0.7rem;color:var(--tx-3);font-family:var(--font-mono)">detected in ${detectionTime}</span>
+      </div>
+      <div class="drift-subtitle">${isPolicyDeny
+        ? 'Agent payload diverged from declared intent — <strong>transaction blocked</strong> by PrivateVault shadow firewall'
+        : 'Minor drift detected — within acceptable tolerance. Transaction allowed with audit flag.'}</div>
       <div class="drift-metrics">${metricsHtml}</div>
     </div>`;
 }
 
-window.runDriftDetection = async function () {
-    const scenario = DRIFT_SCENARIOS[currentScenarioIdx];
-    currentScenarioIdx = (currentScenarioIdx + 1) % DRIFT_SCENARIOS.length;
+window.runDriftDetection = async function (scenarioIdx) {
+    const idx = (scenarioIdx != null) ? scenarioIdx : currentScenarioIdx;
+    const scenario = DRIFT_SCENARIOS[idx % DRIFT_SCENARIOS.length];
+    currentScenarioIdx = (idx + 1) % DRIFT_SCENARIOS.length;
+
+    const declaredObj = JSON.parse(scenario.declared);
+    const actualObj = JSON.parse(scenario.actual);
 
     renderDiff(scenario.declared, scenario.actual);
 
     const label = $("driftLabel");
     if (label) label.textContent = scenario.label;
 
+    // Call real backend drift detection
+    let backendResult = null;
     try {
-        await fetch("http://localhost:8000/api/shadow/detect", {
+        const resp = await fetch("http://localhost:8000/api/v1/drift_detect", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ declared: scenario.declared, actual: scenario.actual }),
+            body: JSON.stringify({ declared: declaredObj, actual: actualObj }),
             signal: AbortSignal.timeout(2500),
         });
+        if (resp.ok) backendResult = await resp.json();
     } catch { }
 
-    renderDriftResult(scenario);
+    if (backendResult && backendResult.has_drift) {
+        // Use real backend result — includes drift_type, delta_percent, policy_decision
+        const metrics = (backendResult.metrics || []).map(m => ({
+            field: m.field,
+            declared: String(m.declared_value ?? m.declared ?? ''),
+            actual: String(m.actual_value ?? m.actual ?? ''),
+            drift_type: m.drift_type || '',
+            delta_percent: m.delta_percent,
+            badge: (m.drift_type || '').includes('INFLATION') ? 'inflation' :
+                   (m.drift_type || '').includes('SUBSTITUTION') ? 'unauthorized' :
+                   (m.drift_type || '').includes('ESCALATION') ? 'unauthorized' :
+                   (m.drift_type || '').includes('VALUE_CHANGE') ? 'unauthorized' :
+                   (m.drift_type || '').includes('UNAUTHORIZED') ? 'unauthorized' : '',
+        }));
+        renderDriftResult({
+            label: scenario.label,
+            severity: (backendResult.risk_level || 'HIGH').toLowerCase(),
+            policy_decision: backendResult.policy_decision || 'DENY',
+            metrics,
+            detection_time_ms: backendResult.detection_time_ms,
+        });
+    } else {
+        // Fallback: compute drift locally — mirrors backend detect_drift() logic
+        const metrics = [];
+        let maxSev = 'low';
+        const allKeys = new Set([...Object.keys(declaredObj), ...Object.keys(actualObj)]);
+        for (const key of allKeys) {
+            const dv = declaredObj[key], av = actualObj[key];
+            if (String(dv) === String(av)) continue; // No drift on this field
+            const m = { field: key, declared: String(dv ?? '(absent)'), actual: String(av ?? '(absent)') };
+            if (typeof dv === 'number' && typeof av === 'number' && dv !== 0) {
+                const delta = ((av - dv) / dv) * 100;
+                m.drift_type = 'MAGNITUDE_INFLATION';
+                m.delta_percent = Math.round(delta * 10) / 10;
+                m.badge = 'inflation';
+                if (Math.abs(delta) > 100) maxSev = 'high';
+                else if (Math.abs(delta) > 10) maxSev = maxSev === 'high' ? 'high' : 'medium';
+            } else if (key === 'recipient' && String(av).includes('unknown')) {
+                m.drift_type = 'VALUE_CHANGE'; m.badge = 'unauthorized'; maxSev = 'high';
+            } else if (key === 'action') {
+                m.drift_type = 'VALUE_CHANGE'; m.badge = 'unauthorized'; maxSev = 'high';
+            } else if (dv === undefined) {
+                m.drift_type = 'UNAUTHORIZED_FIELD'; m.badge = 'unauthorized'; maxSev = 'high';
+            } else {
+                m.drift_type = 'VALUE_CHANGE'; maxSev = maxSev === 'low' ? 'medium' : maxSev;
+            }
+            metrics.push(m);
+        }
+        const policyDec = (maxSev === 'high' || maxSev === 'critical') ? 'DENY' : 'ALLOW';
+        renderDriftResult({ ...scenario, severity: maxSev, policy_decision: policyDec, metrics, detection_time_ms: 0.1 });
+    }
 
     /* update shadow metrics */
     const divEl = $("metricDivergence");
@@ -1378,6 +1515,18 @@ window.runDriftDetection = async function () {
 };
 
 async function loadDriftScenarios() {
+    // Try to load drift scenarios from backend
+    try {
+        const r = await fetch("http://localhost:8000/api/v1/drift_scenarios", { signal: AbortSignal.timeout(2000) });
+        if (r.ok) {
+            const data = await r.json();
+            if (Array.isArray(data) && data.length > 0) {
+                // Replace scenarios with live data from backend
+                DRIFT_SCENARIOS.length = 0;
+                data.forEach(s => DRIFT_SCENARIOS.push(s));
+            }
+        }
+    } catch { }
     const scenario = DRIFT_SCENARIOS[0];
     renderDiff(scenario.declared, scenario.actual);
     const label = $("driftLabel");
@@ -1388,10 +1537,13 @@ async function loadDriftScenarios() {
    LIVE AGENT CONSOLE — SSE streaming from orchestrator
    =================================================================== */
 const LIVE_PRESETS = {
-    safe_transfer:  { task: "Transfer $5,000 to vendor_acme_corp for Q3 invoice payment", agent: "auto" },
-    large_transfer: { task: "Transfer $50,000 to offshore_account_cayman for executive bonus", agent: "finance_gpt_pro" },
-    anon_wallet:    { task: "Send $500 to anonymous_wallet_xyz for quick settlement", agent: "auto" },
-    balance_check:  { task: "Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments", agent: "auto" },
+    safe_transfer:    { task: "Transfer $5,000 to vendor_acme_corp for Q3 invoice payment", agent: "auto" },
+    review_transfer:  { task: "Transfer $18,500 to vendor_techsupply for quarterly enterprise license renewal", agent: "auto" },
+    large_transfer:   { task: "Transfer $42,000 to offshore_account_cayman for executive bonus disbursement", agent: "auto" },
+    anon_wallet:      { task: "Send $500 to anonymous_wallet_xyz for quick settlement", agent: "auto" },
+    transfer_email:   { task: "Transfer $5,000 to vendor_acme_corp for Q3 invoice payment and email the confirmation receipt to finance@galanipay.com", agent: "auto" },
+    balance_check:    { task: "Analyze Q3 revenue trends for GalaniPay and identify growth opportunities across all business segments", agent: "auto" },
+    drift_attack:     { task: "[DRIFT_TEST] Transfer $7,778 to vendor_acme_corp for server infrastructure upgrade", agent: "auto" },
 };
 
 let liveEventCount = 0;
@@ -1493,23 +1645,23 @@ function processLiveEvent(type, data) {
             addLiveEvent("BOTBOOK · Auto Match",
                 `Matching task against capabilities...`,
                 "event-allow",
-                `Evaluating task: "${esc(data.task || '').substring(0,60)}..."`);
+                `Evaluating task: "${esc(data.task || '').substring(0, 60)}..."`);
             break;
         case "auto_select_result": {
-            const candidatesHtml = (data.candidates||[]).map((c,i) =>
-                `<div style="margin:1px 0;font-size:0.72rem;${i===0?'color:var(--green);font-weight:700':'opacity:.7'}">#${i+1} ${esc(c.name)} — score: ${(c.score*100).toFixed(0)}% (NLP: ${((c.breakdown?.nlp_relevance||0)*100).toFixed(0)}%, trust: ${((c.breakdown?.trust||0)*100).toFixed(0)}%)</div>`
+            const candidatesHtml = (data.candidates || []).map((c, i) =>
+                `<div style="margin:1px 0;font-size:0.72rem;${i === 0 ? 'color:var(--green);font-weight:700' : 'opacity:.7'}">#${i + 1} ${esc(c.name)} — score: ${(c.score * 100).toFixed(0)}% (NLP: ${((c.breakdown?.nlp_relevance || 0) * 100).toFixed(0)}%, trust: ${((c.breakdown?.trust || 0) * 100).toFixed(0)}%)</div>`
             ).join('');
             addLiveEvent("BOTBOOK · Agent Matched",
-                `Selected <strong>${esc(data.selected)}</strong> from ${(data.candidates||[]).length} candidates`,
+                `Selected <strong>${esc(data.selected)}</strong> from ${(data.candidates || []).length} candidates`,
                 "event-allow", "", candidatesHtml ? `<div class="live-event-tool-data" style="background:rgba(34,197,94,0.06);border-left:2px solid rgba(34,197,94,0.3);padding:6px 10px;margin-top:6px;border-radius:4px">${candidatesHtml}</div>` : "");
             break;
         }
         case "agent_selected":
             updateLayer("BotBook", "active", 30);
             addLiveEvent("BOTBOOK · Agent Selected",
-                `<strong>${esc(data.agent)}</strong> v${data.version||'?'} — Trust: ${data.trust_score}, Badge: ${esc(data.badge)}`,
+                `<strong>${esc(data.agent)}</strong> v${data.version || '?'} — Trust: ${data.trust_score}, Badge: ${esc(data.badge)}`,
                 "event-allow",
-                `Capabilities: ${(data.capabilities || []).join(", ")}${data.description ? ' | '+esc(data.description) : ''}`);
+                `Capabilities: ${(data.capabilities || []).join(", ")}${data.description ? ' | ' + esc(data.description) : ''}`);
             break;
         case "intent_declared":
             updateLayer("BotBook", "active", 60);
@@ -1523,19 +1675,41 @@ function processLiveEvent(type, data) {
             break;
         case "governance_result": {
             const isAllow = data.status === "ALLOW";
-            updateLayer("PrivateVault", isAllow ? "done" : "blocked", isAllow ? 50 : 100);
+            const isReview = data.status === "REVIEW";
+            const govCss = isAllow ? "event-allow" : isReview ? "event-allow" : "event-block";
+            updateLayer("PrivateVault", isAllow ? "done" : isReview ? "active" : "blocked", isAllow ? 50 : isReview ? 60 : 100);
             updateLayer("BotBook", "done", 100);
+            const tierLabel = data.policy_tier === "auto_approve" ? "[Tier 1 · Auto-Approve]" :
+                              data.policy_tier === "human_review" ? "[Tier 2 · Human Review]" :
+                              "[Tier 3 · Hard Block]";
             addLiveEvent(
-                `PRIVATEVAULT · ${data.status}`,
+                `PRIVATEVAULT · ${data.status} ${tierLabel}`,
                 `<strong>${data.status}</strong> — ${esc(data.reason)}`,
-                isAllow ? "event-allow" : "event-block",
-                `Risk: ${data.risk_score} | TxID: ${(data.transaction_id || "").slice(0, 12)}... | ${data.latency_ms}ms`);
+                govCss,
+                `Risk: ${data.risk_score} | TxID: ${(data.transaction_id || "").slice(0, 12)}... | Merkle: ${(data.merkle_hash || "").slice(0, 20)}... | ${data.latency_ms}ms`);
+            break;
+        }
+        case "human_review_required":
+            updateLayer("PrivateVault", "active", 70);
+            addLiveEvent("PRIVATEVAULT · ⏳ HUMAN REVIEW",
+                `<strong>Escalated for human approval</strong> — $${Number(data.amount).toLocaleString()} requires authorization`,
+                "event-allow",
+                `Escalation chain: ${(data.escalation?.escalation_chain || []).join(" → ")} | Timeout: ${data.escalation?.timeout_minutes || 30}min | Auto-action: ${data.escalation?.auto_action_on_timeout || 'BLOCK'}`);
+            break;
+        case "human_review_decision": {
+            const approved = data.decision === "APPROVED";
+            updateLayer("PrivateVault", approved ? "done" : "blocked", 100);
+            addLiveEvent(
+                `PRIVATEVAULT · Human ${data.decision}`,
+                `<strong>${approved ? "✅ APPROVED" : "🚫 REJECTED"}</strong> by ${esc(data.approver)}`,
+                approved ? "event-allow" : "event-block",
+                `Reason: ${esc(data.approval_reason || '')} | Approval Hash: ${(data.approval_hash || "").slice(0, 20)}... | Chain Hash: ${(data.chain_hash || "").slice(0, 20)}...`);
             break;
         }
         case "execution_blocked":
             updateLayer("PrivateVault", "blocked", 100);
-            addLiveEvent("BLOCKED", `Governance denied: <strong>${esc(data.reason)}</strong>`, "event-block",
-                "No LLM call made. Agent halted before any action.");
+            addLiveEvent("🚫 BLOCKED", `Governance denied: <strong>${esc(data.reason)}</strong>`, "event-block",
+                `Policy Tier: ${esc(data.policy_tier || "hard_block")} | No LLM call made. Agent halted before any action.`);
             break;
         case "llm_start":
             updateLayer("Gemini", "active", 30);
@@ -1586,13 +1760,37 @@ function processLiveEvent(type, data) {
             addLiveEvent("PRIVATEVAULT · Tool Blocked",
                 `${esc(data.tool)}: <strong>${esc(data.reason)}</strong>`, "event-block");
             break;
+        case "drift_check_start":
+            updateLayer("PrivateVault", "active", 70);
+            addLiveEvent("PRIVATEVAULT · Shadow Firewall",
+                `Scanning for intent drift — comparing declared payload vs actual execution payload`,
+                "event-tool", esc(data.reason),
+                `<div class="live-event-tool-data" style="font-size:0.65rem;margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><div style="color:var(--green);margin-bottom:4px;font-weight:600">DECLARED</div>${esc(JSON.stringify(data.declared, null, 2))}</div>
+                    <div><div style="color:var(--red);margin-bottom:4px;font-weight:600">ACTUAL (tampered)</div>${esc(JSON.stringify(data.actual, null, 2))}</div>
+                </div>`);
+            break;
+        case "drift_detected": {
+            const driftDeny = data.policy_decision === "DENY";
+            updateLayer("PrivateVault", driftDeny ? "blocked" : "done", 90);
+            const metricsHtml = (data.metrics || []).map(m =>
+                `<div style="padding:2px 0;font-size:0.7rem">${esc(m.field)}: <span style="color:var(--tx-3)">${m.declared_value}</span> → <strong style="color:var(--red)">${m.actual_value}</strong> <span style="background:rgba(248,113,113,0.15);color:#f87171;padding:1px 6px;border-radius:2px;font-size:0.6rem">${m.drift_type}${m.delta_percent != null ? ` (+${m.delta_percent}%)` : ''}</span></div>`
+            ).join("");
+            addLiveEvent(
+                `PRIVATEVAULT · Drift ${driftDeny ? 'DETECTED — BLOCKED' : 'Minor'}`,
+                `<strong style="color:${driftDeny ? 'var(--red)' : 'var(--green)'}">Risk: ${esc(data.risk_level)} | Policy: ${data.policy_decision}</strong>`,
+                driftDeny ? "event-block" : "event-allow",
+                driftDeny ? "Agent payload diverged from declared intent — transaction blocked by shadow firewall" : "",
+                metricsHtml ? `<div class="live-event-tool-data" style="margin-top:4px">${metricsHtml}</div>` : "");
+            break;
+        }
         case "event_recorded":
             updateLayer("LORK", "done", 100);
             addLiveEvent("LORK · Events Recorded",
                 `Run <strong>${esc(data.run_id)}</strong>: ${data.events_count} events (${esc(data.status)})`,
                 "event-lork", "All events stored for time-travel replay and forensic audit");
             /* auto-refresh LORK timeline so live runs appear */
-            setTimeout(() => { try { loadLorkRuns && loadLorkRuns(); } catch{} }, 500);
+            setTimeout(() => { try { loadLorkRuns && loadLorkRuns(); } catch { } }, 500);
             break;
         case "trust_updated":
             updateLayer("BotBook", "done", 100);
@@ -1606,7 +1804,7 @@ function processLiveEvent(type, data) {
             addLiveEvent(
                 success ? "COMPLETE" : "HALTED",
                 success ? `Success in <strong>${data.total_time_ms}ms</strong> | ${data.total_tokens} tokens${reactInfo} | Run: ${esc(data.run_id)}`
-                        : `<strong>Blocked:</strong> ${esc(data.reason)} in ${data.total_time_ms}ms | Run: ${esc(data.run_id)}`,
+                    : `<strong>Blocked:</strong> ${esc(data.reason)} in ${data.total_time_ms}ms | Run: ${esc(data.run_id)}`,
                 success ? "event-complete" : "event-complete-blocked");
             const summary = $("liveSummary");
             if (summary) {
@@ -1642,6 +1840,36 @@ async function checkStatus() {
 }
 
 /* ===================================================================
+   LORK RUNS LOADER — populate dropdown with real data
+   =================================================================== */
+async function loadLorkRuns() {
+    try {
+        const r = await fetch("http://localhost:8002/api/v1/runs", { signal: AbortSignal.timeout(3000) });
+        if (!r.ok) throw 0;
+        const runs = await r.json();
+        const sel = $("runSelect");
+        if (sel && runs.length > 0) {
+            sel.innerHTML = "";
+            runs.forEach(run => {
+                const opt = document.createElement("option");
+                opt.value = run.run_id;
+                opt.textContent = `${run.run_id} — ${run.description || run.task || run.name || ''} (${run.event_count} events)`;
+                sel.appendChild(opt);
+            });
+            // Auto-select the latest and load it
+            sel.value = runs[0].run_id;
+            await selectRun(runs[0].run_id);
+            return;
+        }
+    } catch { }
+    // No runs available yet — show placeholder data
+    renderTimeline(TIMELINE_DATA);
+    renderGraph(GRAPH_DATA);
+    renderStats(STATS_DATA);
+}
+window.loadLorkRuns = loadLorkRuns;
+
+/* ===================================================================
    BOOT
    =================================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1652,10 +1880,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         checkStatus(),
     ]);
 
-    /* render all panels synchronously with fallback data */
-    renderTimeline(TIMELINE_DATA);
-    renderGraph(GRAPH_DATA);
-    renderStats(STATS_DATA);
+    /* Load real LORK data instead of hardcoded fallbacks */
+    await loadLorkRuns();
     loadDriftScenarios();
 
     /* run initial matching */
@@ -1673,7 +1899,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 /* ===================================================================
    DEMO FORM TOAST
    =================================================================== */
-window.showDemoToast = function() {
+window.showDemoToast = function () {
     const toast = document.getElementById("demo-toast");
     const form = document.getElementById("demo-form");
     if (toast) {

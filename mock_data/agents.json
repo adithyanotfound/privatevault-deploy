@@ -32,6 +32,22 @@
     }
   },
   {
+    "name": "finops_assistant",
+    "member_type": "agent",
+    "capabilities": ["payment_request", "email_send", "financial_analysis", "report_generation", "invoice_processing"],
+    "member_id": "bbk_ag_a1b2c3d4",
+    "owner_id": "galani_corp",
+    "version": "2.5.0",
+    "description": "FinOps specialist that executes payments and sends confirmation emails. Handles end-to-end transfer workflows with audit trails.",
+    "trust": {
+      "tasks_completed": 210,
+      "tasks_failed": 3,
+      "policy_violations": 0,
+      "avg_rating": 4.80,
+      "rating_count": 205
+    }
+  },
+  {
     "name": "support_agent_x",
     "member_type": "agent",
     "capabilities": ["customer_support", "email_send", "crm_read", "ticket_management"],

@@ -236,18 +236,19 @@ class MatchRequest(BaseModel):
 
 # --- CAPABILITY-TO-KEYWORD MAP (for NLP task matching) ---
 CAPABILITY_KEYWORDS = {
-    "financial_analysis": ["revenue","finance","profit","loss","budget","forecast","earnings","quarter","q1","q2","q3","q4","growth","margin","expense","income","financial"],
+    "financial_analysis": ["revenue","finance","profit","loss","budget","forecast","earnings","quarter","q1","q2","q3","q4","growth","margin","expense","income","financial","analyze","analysis"],
     "anomaly_detection": ["anomaly","anomalies","unusual","spike","outlier","suspicious","fraud","irregular"],
-    "report_generation": ["report","summary","document","generate","create report","board report","presentation"],
-    "data_query": ["query","database","data","search","lookup","find","records","fetch","analyze"],
+    "report_generation": ["report","summary","document","generate","create report","board report","presentation","research","investigate","findings","study"],
+    "data_query": ["query","database","data","search","lookup","find","records","fetch","analyze","research","investigate","study","explore","information"],
     "trend_analysis": ["trend","pattern","historical","comparison","growth","forecast","predict"],
     "compliance": ["compliance","audit","regulatory","regulation","sox","soc2","gdpr","policy","legal","violation"],
     "audit_report": ["audit","trail","log","review","inspection","check","verify"],
     "risk_assessment": ["risk","assess","threat","vulnerability","exposure","evaluate","danger"],
-    "invoice_processing": ["invoice","bill","payment","pay","process","settle","accounts payable"],
-    "payment_request": ["pay","transfer","send money","wire","remittance","settlement"],
+    "invoice_processing": ["invoice","bill","payment","pay","process","settle","accounts payable","vendor","renewal","license"],
+    "payment_request": ["pay","transfer","send money","wire","remittance","settlement","$","vendor","money","recipient","disburse"],
+    "budget_forecast": ["budget","forecast","projection","plan","estimate","allocate"],
     "customer_support": ["support","customer","help","ticket","issue","resolve","complaint","service"],
-    "email_send": ["email","send","notify","notification","message","alert"],
+    "email_send": ["email","send","notify","notification","message","alert","mail","confirmation","receipt","results"],
     "crm_read": ["crm","customer data","account","contact","leads"],
     "crm_write": ["update crm","crm write","update customer","modify account"],
     "lead_scoring": ["lead","score","prospect","qualify","sales pipeline","opportunity"],
@@ -277,16 +278,30 @@ def score_agent_for_task(agent: dict, task: str, required_caps: list) -> dict:
     else:
         cap_score = 0.0
 
-    # Factor 2: NLP keyword relevance (0-1)
+    # Factor 2: NLP keyword relevance (0-1) — uses word-boundary matching
+    # to prevent false positives like "nda" matching inside "chandansir"
+    # Score is based on ABSOLUTE number of keyword hits (normalized to cap of 10),
+    # NOT ratio of hits/total_keywords — that penalizes agents with more capabilities.
+    import re
     keyword_hits = 0
     keyword_total = 0
     for cap in caps:
         keywords = CAPABILITY_KEYWORDS.get(cap, [])
         for kw in keywords:
             keyword_total += 1
-            if kw in task_lower:
-                keyword_hits += 1
-    nlp_score = keyword_hits / max(keyword_total, 1)
+            # For short keywords (1-2 chars like "$"), use contains check
+            # For longer keywords, require word boundaries to avoid false positives
+            if len(kw) <= 2:
+                if kw in task_lower:
+                    keyword_hits += 1
+            else:
+                # Use word boundary regex: "send" matches "send $5k" but
+                # "nda" doesn't match "chandansir"
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, task_lower):
+                    keyword_hits += 1
+    # Normalize: 10+ hits = perfect score, fewer hits = proportional
+    nlp_score = min(1.0, keyword_hits / 10.0)
 
     # Factor 3: Trust score (already 0-1)
     trust_score = agent.get("trust_score", 0.0)
@@ -298,14 +313,21 @@ def score_agent_for_task(agent: dict, task: str, required_caps: list) -> dict:
     total = agent.get("tasks_completed", 0) + agent.get("tasks_failed", 0)
     reliability = agent.get("tasks_completed", 0) / max(total, 1) if total > 0 else 0.5
 
-    # Weighted composite score
+    # Weighted composite — NLP relevance is intentionally dominant
+    # so the agent who actually matches the task keywords wins
     composite = (
-        cap_score * 0.25 +       # 25% explicit capability match
-        nlp_score * 0.30 +       # 30% NLP keyword relevance
+        cap_score * 0.20 +       # 20% explicit capability match
+        nlp_score * 0.40 +       # 40% NLP keyword relevance (dominant factor)
         trust_score * 0.20 +     # 20% trust score
-        experience * 0.15 +      # 15% experience
+        experience * 0.10 +      # 10% experience
         reliability * 0.10       # 10% reliability
     )
+
+    # PENALTY: If agent has zero keyword relevance to the task,
+    # penalize heavily — trust alone shouldn't win if the agent
+    # has no capabilities matching what the user actually asked for.
+    if task_lower.strip() and keyword_hits == 0:
+        composite *= 0.4  # 60% penalty for zero relevance
 
     return {
         **agent,
