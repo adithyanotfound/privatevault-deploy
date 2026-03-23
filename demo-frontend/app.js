@@ -1782,6 +1782,53 @@ function processLiveEvent(type, data) {
                 driftDeny ? "event-block" : "event-allow",
                 driftDeny ? "Agent payload diverged from declared intent — transaction blocked by shadow firewall" : "",
                 metricsHtml ? `<div class="live-event-tool-data" style="margin-top:4px">${metricsHtml}</div>` : "");
+
+            /* ── Also update the Shadow Mode / Intent Drift Detection section ── */
+
+            // 1. Render the diff view if declared & actual payloads are available
+            if (data.declared && data.actual) {
+                const declaredStr = JSON.stringify(data.declared, null, 2);
+                const actualStr = JSON.stringify(data.actual, null, 2);
+                renderDiff(declaredStr, actualStr);
+                const label = $("driftLabel");
+                if (label) label.textContent = "Live Drift Attack — " + (data.risk_level || "HIGH");
+            }
+
+            // 2. Render the drift result card in the Shadow Mode section
+            const driftMetrics = (data.metrics || []).map(m => ({
+                field: m.field,
+                declared: String(m.declared_value ?? ''),
+                actual: String(m.actual_value ?? ''),
+                drift_type: m.drift_type || '',
+                delta_percent: m.delta_percent,
+                badge: (m.drift_type || '').includes('INFLATION') ? 'inflation' :
+                       (m.drift_type || '').includes('SUBSTITUTION') ? 'unauthorized' :
+                       (m.drift_type || '').includes('ESCALATION') ? 'unauthorized' :
+                       (m.drift_type || '').includes('VALUE_CHANGE') ? 'unauthorized' :
+                       (m.drift_type || '').includes('UNAUTHORIZED') ? 'unauthorized' : '',
+            }));
+            renderDriftResult({
+                label: "Live Drift Attack",
+                severity: (data.risk_level || 'HIGH').toLowerCase(),
+                policy_decision: data.policy_decision || 'DENY',
+                metrics: driftMetrics,
+                detection_time_ms: data.detection_time_ms,
+            });
+
+            // 3. Update the 3 metric counters (Divergences, Risk Prevented, High Risk)
+            const divEl = $("metricDivergence");
+            const prevEl = $("metricPrevented");
+            const riskEl = $("metricHighRisk");
+            const divBar2 = $("divBar");
+            const prevBar2 = $("prevBar");
+            const riskBar2 = $("riskBar");
+
+            const prevCount2 = parseInt(divEl?.textContent || "0") || 0;
+            const driftAmount = (data.actual && data.actual.amount) ? data.actual.amount : 0;
+            animateMetricBar(divBar2, divEl, Math.min((prevCount2 + 1) * 15, 100), prevCount2 + 1, (v) => Math.round(v).toLocaleString());
+            animateMetricBar(prevBar2, prevEl, Math.min((prevCount2 + 1) * 20, 100), driftAmount || (prevCount2 + 1) * 47500, (v) => "$" + Math.round(v).toLocaleString());
+            animateMetricBar(riskBar2, riskEl, Math.min((prevCount2 + 1) * 18, 100), prevCount2 + 1, (v) => Math.round(v).toLocaleString());
+
             break;
         }
         case "event_recorded":
