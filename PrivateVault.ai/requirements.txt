@@ -1,10 +1,8 @@
 fastapi
 uvicorn[standard]
-
 hvac
 PyJWT
 structlog
-
 prometheus-client
 requests
 pydantic
@@ -14,22 +12,10 @@ bcrypt
 python-dotenv
 aiofiles
 python-json-logger
-temporalio
 
-# Testing
-pytest
-pytest-cov
-pytest-html
-pytest-asyncio
-anyio
-
-# Demo test deps
-pytest
-pytest-cov
-pytest-html
-httpx
-asyncpg
-pytest-asyncio
-pynacl
-deepdiff
-psutil
+# These are moved to requirements-test.txt for local use
+# temporalio
+# asyncpg
+# pynacl
+# psutil
+# deepdiff
