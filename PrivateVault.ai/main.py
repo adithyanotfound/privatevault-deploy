@@ -31,7 +31,7 @@ app.add_middleware(
 )
 
 # --- MOCK DATA PATHS ---
-MOCK_DATA_DIR = Path(__file__).parent.parent / "mock_data"
+MOCK_DATA_DIR = Path(__file__).parent.parent / "demo-frontend" / "mock_data"
 
 def load_mock(filename):
     path = MOCK_DATA_DIR / filename

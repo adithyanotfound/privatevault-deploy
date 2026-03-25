@@ -1,0 +1,5 @@
+{
+  "privatevault": "http://localhost:8000",
+  "botbook": "http://localhost:8001",
+  "lork": "http://localhost:8002"
+}
