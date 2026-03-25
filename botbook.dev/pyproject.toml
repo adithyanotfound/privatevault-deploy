@@ -1,24 +1,30 @@
-[build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "botbook"
 version = "0.1.0"
-description = "BotBook agent infrastructure platform"
-authors = [{name="BotBook"}]
+description = "BotBook.dev — Agent Operating System API"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 
 dependencies = [
-    "uvicorn",
     "fastapi",
-    "fastapi",
-    "uvicorn",
+    "uvicorn[standard]",
+    "pydantic>=2.0",
+    "pydantic-settings",
+    "httpx",
+    "python-dotenv",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "cryptography",
+    "structlog",
+    "google-genai"
 ]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project.scripts]
 botbook = "botbook.cli:main"
-
-[tool.setuptools.packages.find]
-where = ["."]

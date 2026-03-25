@@ -1,34 +1,28 @@
 # BotBook dependencies
 
 # Core
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-pydantic==2.8.2
-pydantic-settings==2.4.0
-httpx==0.27.2
-
-# Data
-asyncpg==0.29.0
-redis[hiredis]==5.0.8
-qdrant-client==1.11.0
-
-# Kafka / event bus
-aiokafka==0.11.0
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+httpx
+python-dotenv
+google-genai
 
 # Auth + crypto
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-cryptography==43.0.0
+python-jose[cryptography]
+passlib[bcrypt]
+cryptography
 
 # Observability
-opentelemetry-sdk==1.26.0
-opentelemetry-exporter-otlp==1.26.0
-structlog==24.4.0
+structlog
+
+# Heavy dependencies — disabled for Vercel build (they are not imported in main.py)
+# asyncpg
+# redis[hiredis]
+# qdrant-client
+# aiokafka
 
 # Testing
-pytest==8.3.3
-pytest-asyncio==0.24.0
-
-# Dev
-ruff==0.6.3
-mypy==1.11.2
+# pytest
+# pytest-asyncio

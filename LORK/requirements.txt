@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+python-dotenv
+httpx
+google-genai
