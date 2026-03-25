@@ -1,6 +1,6 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/(.*)", "destination": "lork/api_server.py" }
+    { "source": "/(.*)", "destination": "main.py" }
   ]
 }
