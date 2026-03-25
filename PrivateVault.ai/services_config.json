@@ -1,5 +1,5 @@
 {
-  "privatevault": "http://localhost:8000",
-  "botbook": "http://localhost:8001",
-  "lork": "http://localhost:8002"
+  "privatevault": "https://privatevault-deploy.vercel.app",
+  "botbook": "https://botbook-deploy.vercel.app",
+  "lork": "https://lork-deploy.vercel.app"
 }

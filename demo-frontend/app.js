@@ -237,7 +237,7 @@ window.runGovernanceCheck = async function () {
 
     try {
         const t0 = performance.now();
-        const resp = await fetch("http://localhost:8000/api/v1/shadow_verify", {
+        const resp = await fetch("https://privatevault-deploy.vercel.app/api/v1/shadow_verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agent_id: agentId, action, amount, recipient }),
@@ -363,7 +363,7 @@ window.registerNewAgent = function () {
 
 async function loadAgents() {
     try {
-        const r = await fetch("http://localhost:8001/api/agents", { signal: AbortSignal.timeout(3000) });
+        const r = await fetch("https://botbook-deploy.vercel.app/api/agents", { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const data = await r.json();
         renderAgentList(data.agents || data);
@@ -383,7 +383,7 @@ window.runMatching = async function () {
     const caps = [...document.querySelectorAll(".cap-chip.active")].map(c => c.dataset.cap);
 
     try {
-        const r = await fetch("http://localhost:8001/api/v1/match", {
+        const r = await fetch("https://botbook-deploy.vercel.app/api/v1/match", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ task, required_capabilities: caps, min_trust_score: minTrust, max_results: 5 }),
@@ -450,7 +450,7 @@ const CLI_SCRIPTS = {
         { type: "cmd", text: "botbook init" },
         { cls: "terminal-output", type: "out", text: "Initializing BotBook workspace..." },
         { cls: "terminal-success", type: "out", text: "Workspace created: .botbook/" },
-        { cls: "terminal-output", type: "out", text: "LORK endpoint: http://localhost:8002" },
+        { cls: "terminal-output", type: "out", text: "LORK endpoint: https://lork-deploy.vercel.app" },
         { cls: "terminal-success", type: "out", text: "Ready." },
     ],
     make: [
@@ -1097,7 +1097,7 @@ function renderStats(stats) {
 
 window.selectRun = async function (runId) {
     try {
-        const r = await fetch(`http://localhost:8002/api/v1/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`https://lork-deploy.vercel.app/api/v1/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const data = await r.json();
         const events = data.events || [];
@@ -1158,7 +1158,7 @@ window.startReplay = async function () {
     let events = [];
     let runTask = "";
     try {
-        const r = await fetch(`http://localhost:8002/api/v1/runs/${runId}/replay`, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`https://lork-deploy.vercel.app/api/v1/runs/${runId}/replay`, { signal: AbortSignal.timeout(3000) });
         if (r.ok) {
             const data = await r.json();
             events = data.events || [];
@@ -1289,7 +1289,7 @@ window.runFullPipeline = async function () {
     pipeLog("Step 1 — Create Agent Team", ["botbook make --agent data_collector --lork-enabled", "botbook make --agent analyst --lork-enabled", "botbook make --agent reporter --lork-enabled"]);
     await delay(1400);
     try {
-        const r = await fetch("http://localhost:8001/api/team", {
+        const r = await fetch("https://botbook-deploy.vercel.app/api/team", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agents: ["data_collector", "analyst", "reporter"] }),
@@ -1308,7 +1308,7 @@ window.runFullPipeline = async function () {
     pipeLog("Step 2 — Execute Workflow", ["botbook run --workflow fintech-pipeline --team team-demo-001", "Scheduling agents...", "Sequential execution plan: data_collector -> analyst -> reporter"]);
     await delay(1600);
     try {
-        const r = await fetch("http://localhost:8001/api/workflow", {
+        const r = await fetch("https://botbook-deploy.vercel.app/api/workflow", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workflow: "fintech-pipeline", team_id: "team-demo-001" }),
@@ -1328,7 +1328,7 @@ window.runFullPipeline = async function () {
     await delay(1200);
     let govResult = "ALLOW";
     try {
-        const r = await fetch("http://localhost:8000/api/governance/verify", {
+        const r = await fetch("https://privatevault-deploy.vercel.app/api/governance/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agent_id: "analyst", action: "transfer", amount: 5000, recipient: "vendor_acme_corp" }),
@@ -1439,7 +1439,7 @@ window.runDriftDetection = async function (scenarioIdx) {
     // Call real backend drift detection
     let backendResult = null;
     try {
-        const resp = await fetch("http://localhost:8000/api/v1/drift_detect", {
+        const resp = await fetch("https://privatevault-deploy.vercel.app/api/v1/drift_detect", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ declared: declaredObj, actual: actualObj }),
@@ -1517,7 +1517,7 @@ window.runDriftDetection = async function (scenarioIdx) {
 async function loadDriftScenarios() {
     // Try to load drift scenarios from backend
     try {
-        const r = await fetch("http://localhost:8000/api/v1/drift_scenarios", { signal: AbortSignal.timeout(2000) });
+        const r = await fetch("https://privatevault-deploy.vercel.app/api/v1/drift_scenarios", { signal: AbortSignal.timeout(2000) });
         if (r.ok) {
             const data = await r.json();
             if (Array.isArray(data) && data.length > 0) {
@@ -1609,7 +1609,7 @@ window.executeLive = async function () {
     if (btn) { btn.disabled = true; btn.innerHTML = `<span class="btn-spinner"></span> Executing...`; }
     resetLiveUI();
     try {
-        const response = await fetch("http://localhost:8001/api/v1/execute_live", {
+        const response = await fetch("https://botbook-deploy.vercel.app/api/v1/execute_live", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ task, agent_name: agent }),
@@ -1873,11 +1873,11 @@ function processLiveEvent(type, data) {
 async function checkStatus() {
     let vaultOk = false, botbookOk = false;
     try {
-        const r = await fetch("http://localhost:8000/health", { signal: AbortSignal.timeout(2500) });
+        const r = await fetch("https://privatevault-deploy.vercel.app/health", { signal: AbortSignal.timeout(2500) });
         vaultOk = r.ok;
     } catch { }
     try {
-        const r = await fetch("http://localhost:8001/health", { signal: AbortSignal.timeout(2500) });
+        const r = await fetch("https://botbook-deploy.vercel.app/health", { signal: AbortSignal.timeout(2500) });
         botbookOk = r.ok;
     } catch { }
 
@@ -1891,7 +1891,7 @@ async function checkStatus() {
    =================================================================== */
 async function loadLorkRuns() {
     try {
-        const r = await fetch("http://localhost:8002/api/v1/runs", { signal: AbortSignal.timeout(3000) });
+        const r = await fetch("https://lork-deploy.vercel.app/api/v1/runs", { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const runs = await r.json();
         const sel = $("runSelect");

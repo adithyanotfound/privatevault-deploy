@@ -520,9 +520,9 @@ class PipelineRequest(BaseModel):
 async def execute_live(request: ExecuteRequest):
     from orchestrator import LiveOrchestrator
     orch = LiveOrchestrator(
-        vault_url="http://localhost:8000",
-        lork_url="http://localhost:8002",
-        botbook_url="http://localhost:8001",
+        vault_url="https://privatevault-deploy.vercel.app",
+        lork_url="https://lork-deploy.vercel.app",
+        botbook_url="https://botbook-deploy.vercel.app",
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )
@@ -536,9 +536,9 @@ async def execute_live(request: ExecuteRequest):
 async def execute_pipeline(request: PipelineRequest):
     from orchestrator import LiveOrchestrator, PipelineOrchestrator
     orch = LiveOrchestrator(
-        vault_url="http://localhost:8000",
-        lork_url="http://localhost:8002",
-        botbook_url="http://localhost:8001",
+        vault_url="https://privatevault-deploy.vercel.app",
+        lork_url="https://lork-deploy.vercel.app",
+        botbook_url="https://botbook-deploy.vercel.app",
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )
