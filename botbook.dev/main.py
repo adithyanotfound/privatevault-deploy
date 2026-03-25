@@ -29,10 +29,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- MOCK DATA ---
-MOCK_DATA_DIR = Path(__file__).parent.parent / "demo-frontend" / "mock_data"
+# --- CONFIGURATION & PATHS ---
+PROJECT_ROOT = Path(__file__).parent
+MOCK_DATA_DIR = PROJECT_ROOT.parent / "demo-frontend" / "mock_data"
+
+# If deployed as a standalone on Vercel, demo-frontend might be missing.
+if not MOCK_DATA_DIR.exists():
+    MOCK_DATA_DIR = PROJECT_ROOT / "mock_data"
 
 def load_mock(filename):
+    if not MOCK_DATA_DIR.exists():
+        return []
     path = MOCK_DATA_DIR / filename
     if path.exists():
         with open(path) as f:

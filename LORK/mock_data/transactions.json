@@ -1,0 +1,92 @@
+[
+  {
+    "id": "tx_001",
+    "action": "transfer",
+    "amount": 5000,
+    "recipient": "vendor_acme_corp",
+    "agent_id": "finance_agent",
+    "expected_status": "ALLOW",
+    "description": "Normal invoice payment — within limits, known vendor"
+  },
+  {
+    "id": "tx_002",
+    "action": "transfer",
+    "amount": 50000,
+    "recipient": "vendor_acme_corp",
+    "agent_id": "finance_agent",
+    "expected_status": "BLOCK",
+    "description": "Large transfer — exceeds $10k automated limit"
+  },
+  {
+    "id": "tx_003",
+    "action": "transfer",
+    "amount": 500,
+    "recipient": "anonymous_wallet_xyz",
+    "agent_id": "finance_agent",
+    "expected_status": "BLOCK",
+    "description": "Anonymous recipient — KYC failure"
+  },
+  {
+    "id": "tx_004",
+    "action": "deploy_smart_contract",
+    "amount": 0,
+    "recipient": "blockchain_mainnet",
+    "agent_id": "finance_agent",
+    "expected_status": "BLOCK",
+    "description": "Unauthorized action — not in whitelist"
+  },
+  {
+    "id": "tx_005",
+    "action": "query_balance",
+    "amount": 0,
+    "recipient": "internal_account",
+    "agent_id": "compliance_agent",
+    "expected_status": "ALLOW",
+    "description": "Balance query — read-only, always allowed"
+  },
+  {
+    "id": "tx_006",
+    "action": "pay_invoice",
+    "amount": 9999,
+    "recipient": "vendor_techsupply",
+    "agent_id": "finance_agent",
+    "expected_status": "ALLOW",
+    "description": "Invoice payment just under limit — edge case"
+  },
+  {
+    "id": "tx_007",
+    "action": "pay_invoice",
+    "amount": 10001,
+    "recipient": "vendor_techsupply",
+    "agent_id": "finance_agent",
+    "expected_status": "BLOCK",
+    "description": "Invoice payment just over limit — edge case boundary"
+  },
+  {
+    "id": "tx_008",
+    "action": "transfer",
+    "amount": 750,
+    "recipient": "unknown_entity_42",
+    "agent_id": "sales_agent",
+    "expected_status": "BLOCK",
+    "description": "Unknown recipient — KYC block on 'unknown' keyword"
+  },
+  {
+    "id": "tx_009",
+    "action": "transfer",
+    "amount": 2500,
+    "recipient": "vendor_cloudservices",
+    "agent_id": "risk_monitor",
+    "expected_status": "ALLOW",
+    "description": "Normal transfer from risk monitor — allowed"
+  },
+  {
+    "id": "tx_010",
+    "action": "execute_trade",
+    "amount": 15000,
+    "recipient": "exchange_binance",
+    "agent_id": "finance_agent",
+    "expected_status": "BLOCK",
+    "description": "Unauthorized action + over limit — double block"
+  }
+]

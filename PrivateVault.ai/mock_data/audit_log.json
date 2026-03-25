@@ -1,0 +1,98 @@
+[
+  {
+    "transaction_id": "a1b2c3d4-1111-4444-aaaa-000000000001",
+    "timestamp": "2026-03-18T12:00:00Z",
+    "agent_id": "finance_agent",
+    "action": "transfer",
+    "amount": 5000,
+    "recipient": "vendor_acme_corp",
+    "status": "ALLOW",
+    "reason": "Transaction within safe parameters.",
+    "merkle_hash": "sha256:7a3f2b1c4d5e6f7890abcdef12345678",
+    "risk_score": 0.1
+  },
+  {
+    "transaction_id": "a1b2c3d4-2222-4444-aaaa-000000000002",
+    "timestamp": "2026-03-18T12:00:15Z",
+    "agent_id": "finance_agent",
+    "action": "transfer",
+    "amount": 50000,
+    "recipient": "vendor_acme_corp",
+    "status": "BLOCK",
+    "reason": "Amount exceeds automated authorization limit ($10,000). Human Approval Required.",
+    "merkle_hash": "sha256:8b4f3c2d5e6f7a8901bcdef234567890",
+    "risk_score": 1.0
+  },
+  {
+    "transaction_id": "a1b2c3d4-3333-4444-aaaa-000000000003",
+    "timestamp": "2026-03-18T12:01:30Z",
+    "agent_id": "finance_agent",
+    "action": "transfer",
+    "amount": 500,
+    "recipient": "anonymous_wallet_xyz",
+    "status": "BLOCK",
+    "reason": "Recipient identity cannot be verified (KYC Failure).",
+    "merkle_hash": "sha256:9c5a4d3e6f7a8b9012cdef345678901a",
+    "risk_score": 0.85
+  },
+  {
+    "transaction_id": "a1b2c3d4-4444-4444-aaaa-000000000004",
+    "timestamp": "2026-03-18T12:02:00Z",
+    "agent_id": "compliance_agent",
+    "action": "query_balance",
+    "amount": 0,
+    "recipient": "internal_account",
+    "status": "ALLOW",
+    "reason": "Transaction within safe parameters.",
+    "merkle_hash": "sha256:0d6b5e4f7a8b9c0123def456789012ab",
+    "risk_score": 0.0
+  },
+  {
+    "transaction_id": "a1b2c3d4-5555-4444-aaaa-000000000005",
+    "timestamp": "2026-03-18T14:30:00Z",
+    "agent_id": "sales_agent",
+    "action": "deploy_smart_contract",
+    "amount": 0,
+    "recipient": "blockchain_mainnet",
+    "status": "BLOCK",
+    "reason": "Action 'deploy_smart_contract' is not in the approved capabilities list.",
+    "merkle_hash": "sha256:1e7c6f5a8b9c0d1234ef567890123bcd",
+    "risk_score": 0.95
+  },
+  {
+    "transaction_id": "a1b2c3d4-6666-4444-aaaa-000000000006",
+    "timestamp": "2026-03-19T09:00:00Z",
+    "agent_id": "risk_monitor",
+    "action": "transfer",
+    "amount": 2500,
+    "recipient": "vendor_cloudservices",
+    "status": "ALLOW",
+    "reason": "Transaction within safe parameters.",
+    "merkle_hash": "sha256:2f8d7a6b9c0d1e2345f678901234cde5",
+    "risk_score": 0.05
+  },
+  {
+    "transaction_id": "a1b2c3d4-7777-4444-aaaa-000000000007",
+    "timestamp": "2026-03-19T10:15:00Z",
+    "agent_id": "finance_agent",
+    "action": "pay_invoice",
+    "amount": 9999,
+    "recipient": "vendor_techsupply",
+    "status": "ALLOW",
+    "reason": "Transaction within safe parameters.",
+    "merkle_hash": "sha256:3a9e8b7c0d1e2f3456a789012345def6",
+    "risk_score": 0.2
+  },
+  {
+    "transaction_id": "a1b2c3d4-8888-4444-aaaa-000000000008",
+    "timestamp": "2026-03-19T10:15:30Z",
+    "agent_id": "finance_agent",
+    "action": "pay_invoice",
+    "amount": 10001,
+    "recipient": "vendor_techsupply",
+    "status": "BLOCK",
+    "reason": "Amount exceeds automated authorization limit ($10,000). Human Approval Required.",
+    "merkle_hash": "sha256:4b0f9c8d1e2f3a4567b890123456ef78",
+    "risk_score": 0.95
+  }
+]

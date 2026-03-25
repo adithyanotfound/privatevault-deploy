@@ -1,0 +1,194 @@
+[
+  {
+    "name": "data_analyst_v2",
+    "member_type": "agent",
+    "capabilities": ["financial_analysis", "anomaly_detection", "report_generation", "data_query", "trend_analysis"],
+    "member_id": "bbk_ag_76a82109",
+    "owner_id": "galani_corp",
+    "version": "2.1.0",
+    "description": "Advanced financial data analyst with anomaly detection. Specializes in revenue analysis and trend identification.",
+    "trust": {
+      "tasks_completed": 200,
+      "tasks_failed": 3,
+      "policy_violations": 0,
+      "avg_rating": 4.90,
+      "rating_count": 195
+    }
+  },
+  {
+    "name": "finance_gpt_pro",
+    "member_type": "agent",
+    "capabilities": ["financial_analysis", "invoice_processing", "payment_request", "budget_forecast"],
+    "member_id": "bbk_ag_fbef2661",
+    "owner_id": "acme_corp",
+    "version": "3.0.1",
+    "description": "Enterprise finance agent for invoice processing, payments, and budget forecasting.",
+    "trust": {
+      "tasks_completed": 150,
+      "tasks_failed": 8,
+      "policy_violations": 0,
+      "avg_rating": 4.70,
+      "rating_count": 142
+    }
+  },
+  {
+    "name": "finops_assistant",
+    "member_type": "agent",
+    "capabilities": ["payment_request", "email_send", "financial_analysis", "report_generation", "invoice_processing"],
+    "member_id": "bbk_ag_a1b2c3d4",
+    "owner_id": "galani_corp",
+    "version": "2.5.0",
+    "description": "FinOps specialist that executes payments and sends confirmation emails. Handles end-to-end transfer workflows with audit trails.",
+    "trust": {
+      "tasks_completed": 210,
+      "tasks_failed": 3,
+      "policy_violations": 0,
+      "avg_rating": 4.80,
+      "rating_count": 205
+    }
+  },
+  {
+    "name": "support_agent_x",
+    "member_type": "agent",
+    "capabilities": ["customer_support", "email_send", "crm_read", "ticket_management"],
+    "member_id": "bbk_ag_da68e815",
+    "owner_id": "galani_corp",
+    "version": "1.4.2",
+    "description": "Customer support agent with CRM integration and ticket management.",
+    "trust": {
+      "tasks_completed": 50,
+      "tasks_failed": 5,
+      "policy_violations": 0,
+      "avg_rating": 4.20,
+      "rating_count": 45
+    }
+  },
+  {
+    "name": "compliance_guardian",
+    "member_type": "agent",
+    "capabilities": ["compliance", "audit_report", "risk_assessment", "regulatory_check", "financial_analysis"],
+    "member_id": "bbk_ag_c2d3e4f5",
+    "owner_id": "galani_corp",
+    "version": "4.2.0",
+    "description": "SOC2/SOX compliance auditor with regulatory verification and audit trail generation.",
+    "trust": {
+      "tasks_completed": 320,
+      "tasks_failed": 2,
+      "policy_violations": 0,
+      "avg_rating": 4.85,
+      "rating_count": 310
+    }
+  },
+  {
+    "name": "risk_sentinel_v3",
+    "member_type": "agent",
+    "capabilities": ["risk_assessment", "fraud_detection", "anomaly_detection", "transaction_monitoring"],
+    "member_id": "bbk_ag_e4f5a6b7",
+    "owner_id": "fintech_labs",
+    "version": "3.1.0",
+    "description": "Real-time risk assessment and fraud detection with ML-based anomaly scoring.",
+    "trust": {
+      "tasks_completed": 520,
+      "tasks_failed": 1,
+      "policy_violations": 0,
+      "avg_rating": 4.95,
+      "rating_count": 510
+    }
+  },
+  {
+    "name": "marketing_optimizer",
+    "member_type": "agent",
+    "capabilities": ["campaign_gen", "seo_analysis", "ab_testing", "content_creation"],
+    "member_id": "bbk_ag_f6a7b8c9",
+    "owner_id": "acme_corp",
+    "version": "0.9.3",
+    "description": "Marketing campaign optimizer. LOW TRUST — multiple failures and policy violations.",
+    "trust": {
+      "tasks_completed": 10,
+      "tasks_failed": 12,
+      "policy_violations": 2,
+      "avg_rating": 3.10,
+      "rating_count": 8
+    }
+  },
+  {
+    "name": "sales_accelerator",
+    "member_type": "agent",
+    "capabilities": ["lead_scoring", "pipeline_management", "crm_write", "email_send", "deal_analysis"],
+    "member_id": "bbk_ag_b1c2d3e4",
+    "owner_id": "galani_corp",
+    "version": "2.0.0",
+    "description": "Sales pipeline optimizer with lead scoring and CRM automation.",
+    "trust": {
+      "tasks_completed": 180,
+      "tasks_failed": 4,
+      "policy_violations": 0,
+      "avg_rating": 4.65,
+      "rating_count": 170
+    }
+  },
+  {
+    "name": "onboarding_bot",
+    "member_type": "agent",
+    "capabilities": ["customer_support", "email_send", "document_generation", "workflow_automation"],
+    "member_id": "bbk_ag_c3d4e5f6",
+    "owner_id": "galani_corp",
+    "version": "1.2.0",
+    "description": "Customer onboarding automation with document generation and welcome workflows.",
+    "trust": {
+      "tasks_completed": 95,
+      "tasks_failed": 2,
+      "policy_violations": 0,
+      "avg_rating": 4.50,
+      "rating_count": 90
+    }
+  },
+  {
+    "name": "legal_reviewer_v2",
+    "member_type": "agent",
+    "capabilities": ["compliance", "contract_review", "risk_assessment", "regulatory_check"],
+    "member_id": "bbk_ag_d4e5f6a7",
+    "owner_id": "fintech_labs",
+    "version": "2.3.1",
+    "description": "Legal contract reviewer with regulatory compliance checking.",
+    "trust": {
+      "tasks_completed": 275,
+      "tasks_failed": 1,
+      "policy_violations": 0,
+      "avg_rating": 4.92,
+      "rating_count": 270
+    }
+  },
+  {
+    "name": "devops_sentinel",
+    "member_type": "agent",
+    "capabilities": ["infrastructure_monitoring", "incident_response", "log_analysis", "deployment_automation"],
+    "member_id": "bbk_ag_e5f6a7b8",
+    "owner_id": "galani_corp",
+    "version": "1.0.0",
+    "description": "Infrastructure monitoring with automated incident response. New agent.",
+    "trust": {
+      "tasks_completed": 15,
+      "tasks_failed": 1,
+      "policy_violations": 0,
+      "avg_rating": 4.30,
+      "rating_count": 14
+    }
+  },
+  {
+    "name": "Chandan Galani",
+    "member_type": "human",
+    "capabilities": ["product_strategy", "fundraising", "agent_operations"],
+    "member_id": "bbk_hu_df51a693",
+    "email": "chandan@botbook.dev",
+    "trust": {"tasks_completed": 0, "tasks_failed": 0, "policy_violations": 0, "avg_rating": 0, "rating_count": 0}
+  },
+  {
+    "name": "Dr. Priya Sharma",
+    "member_type": "human",
+    "capabilities": ["research_oversight", "compliance_review", "audit_approval"],
+    "member_id": "bbk_hu_87654321",
+    "email": "priya@university.edu",
+    "trust": {"tasks_completed": 45, "tasks_failed": 0, "policy_violations": 0, "avg_rating": 4.98, "rating_count": 45}
+  }
+]

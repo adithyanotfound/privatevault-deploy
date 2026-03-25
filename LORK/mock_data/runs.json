@@ -1,0 +1,96 @@
+{
+  "fintech-pipeline-001": {
+    "name": "fintech-pipeline-001",
+    "description": "Q3 Board Report Pipeline",
+    "created_at": "2026-03-18T12:15:00Z",
+    "status": "completed",
+    "task": "Prepare Q3 board report: analyze finances, check compliance, draft investor outreach",
+    "events": [
+      {"seq": 1, "type": "agent_step", "agent": "finance_agent", "latency_ms": 120, "tokens": 500, "payload": "Analyze Q3 revenue trends", "timestamp": "2026-03-18T12:15:00.120Z"},
+      {"seq": 2, "type": "tool_call", "agent": "finance_agent", "latency_ms": 45, "tokens": 0, "tool": "query_database", "input": "Q3 transactions", "timestamp": "2026-03-18T12:15:00.165Z"},
+      {"seq": 3, "type": "agent_step", "agent": "finance_agent", "latency_ms": 200, "tokens": 800, "payload": "Generate financial summary — 23% growth, 3 new Fortune 500 clients", "timestamp": "2026-03-18T12:15:00.365Z"},
+      {"seq": 4, "type": "policy_check", "agent": "compliance_agent", "latency_ms": 15, "tokens": 0, "payload": "Policy verification — all rules passed", "timestamp": "2026-03-18T12:15:00.380Z"},
+      {"seq": 5, "type": "agent_step", "agent": "compliance_agent", "latency_ms": 180, "tokens": 650, "payload": "Check regulatory compliance — SEC filing OK, SOX audit passed", "timestamp": "2026-03-18T12:15:00.560Z"},
+      {"seq": 6, "type": "tool_call", "agent": "compliance_agent", "latency_ms": 30, "tokens": 0, "tool": "check_regulations", "input": "SEC filing rules", "timestamp": "2026-03-18T12:15:00.590Z"},
+      {"seq": 7, "type": "agent_step", "agent": "sales_agent", "latency_ms": 350, "tokens": 1200, "payload": "Draft investor outreach — targeting 5 VCs, personalized pitch deck summaries", "timestamp": "2026-03-18T12:15:00.940Z"}
+    ],
+    "graph": [
+      {"from": "finance_agent", "to": "query_database", "type": "tool"},
+      {"from": "finance_agent", "to": "compliance_agent", "type": "agent"},
+      {"from": "compliance_agent", "to": "check_regulations", "type": "tool"},
+      {"from": "compliance_agent", "to": "sales_agent", "type": "agent"}
+    ]
+  },
+  "support-ticket-002": {
+    "name": "support-ticket-002",
+    "description": "Customer Billing Inquiry",
+    "created_at": "2026-03-18T14:30:00Z",
+    "status": "completed",
+    "task": "Resolve billing inquiry for customer #4521",
+    "events": [
+      {"seq": 1, "type": "agent_step", "agent": "support_agent", "latency_ms": 80, "tokens": 300, "payload": "Read customer ticket — billing discrepancy $2,400", "timestamp": "2026-03-18T14:30:00.080Z"},
+      {"seq": 2, "type": "tool_call", "agent": "support_agent", "latency_ms": 120, "tokens": 0, "tool": "search_docs", "input": "billing FAQ — overcharge resolution", "timestamp": "2026-03-18T14:30:00.200Z"},
+      {"seq": 3, "type": "agent_step", "agent": "support_agent", "latency_ms": 250, "tokens": 900, "payload": "Draft reply — acknowledge error, refund initiated, follow-up in 48h", "timestamp": "2026-03-18T14:30:00.450Z"}
+    ],
+    "graph": [
+      {"from": "support_agent", "to": "search_docs", "type": "tool"}
+    ]
+  },
+  "compliance-audit-003": {
+    "name": "compliance-audit-003",
+    "description": "Monthly Compliance Audit",
+    "created_at": "2026-03-18T16:00:00Z",
+    "status": "completed",
+    "task": "Run monthly compliance audit on all transactions",
+    "events": [
+      {"seq": 1, "type": "agent_step", "agent": "compliance_agent", "latency_ms": 100, "tokens": 400, "payload": "Scan transaction logs — 1,247 transactions in last 30 days", "timestamp": "2026-03-18T16:00:00.100Z"},
+      {"seq": 2, "type": "tool_call", "agent": "compliance_agent", "latency_ms": 200, "tokens": 0, "tool": "query_ledger", "input": "Last 30 days all tenants", "timestamp": "2026-03-18T16:00:00.300Z"},
+      {"seq": 3, "type": "policy_check", "agent": "compliance_agent", "latency_ms": 20, "tokens": 0, "payload": "KYC verification batch — 3 flagged for review", "timestamp": "2026-03-18T16:00:00.320Z"},
+      {"seq": 4, "type": "agent_step", "agent": "risk_monitor", "latency_ms": 300, "tokens": 1100, "payload": "Risk assessment report — 2 HIGH risk, 1 MEDIUM, overall score: 0.12 (LOW)", "timestamp": "2026-03-18T16:00:00.620Z"},
+      {"seq": 5, "type": "tool_call", "agent": "risk_monitor", "latency_ms": 85, "tokens": 0, "tool": "generate_report", "input": "Compliance audit March 2026", "timestamp": "2026-03-18T16:00:00.705Z"}
+    ],
+    "graph": [
+      {"from": "compliance_agent", "to": "query_ledger", "type": "tool"},
+      {"from": "compliance_agent", "to": "risk_monitor", "type": "agent"},
+      {"from": "risk_monitor", "to": "generate_report", "type": "tool"}
+    ]
+  },
+  "fraud-detection-004": {
+    "name": "fraud-detection-004",
+    "description": "Real-time Fraud Detection Pipeline",
+    "created_at": "2026-03-19T09:45:00Z",
+    "status": "policy_blocked",
+    "task": "Investigate suspicious transaction pattern from merchant_99x",
+    "events": [
+      {"seq": 1, "type": "agent_step", "agent": "risk_sentinel", "latency_ms": 60, "tokens": 250, "payload": "Detect anomalous pattern — 47 micro-transactions in 2 minutes", "timestamp": "2026-03-19T09:45:00.060Z"},
+      {"seq": 2, "type": "tool_call", "agent": "risk_sentinel", "latency_ms": 150, "tokens": 0, "tool": "query_transaction_db", "input": "merchant_99x last 10 minutes", "timestamp": "2026-03-19T09:45:00.210Z"},
+      {"seq": 3, "type": "policy_check", "agent": "risk_sentinel", "latency_ms": 8, "tokens": 0, "payload": "GOVERNANCE CHECK: transfer $45,000 to external_wallet → BLOCKED (amount limit)", "timestamp": "2026-03-19T09:45:00.218Z"},
+      {"seq": 4, "type": "agent_step", "agent": "risk_sentinel", "latency_ms": 180, "tokens": 600, "payload": "Generated incident report IR-2026-0319 — recommended account freeze", "timestamp": "2026-03-19T09:45:00.398Z"},
+      {"seq": 5, "type": "agent_step", "agent": "compliance_agent", "latency_ms": 220, "tokens": 750, "payload": "Regulatory filing prepared — SAR submitted to FinCEN", "timestamp": "2026-03-19T09:45:00.618Z"},
+      {"seq": 6, "type": "tool_call", "agent": "compliance_agent", "latency_ms": 40, "tokens": 0, "tool": "notify_human", "input": "Alert: Potential fraud — merchant_99x — requires manual review", "timestamp": "2026-03-19T09:45:00.658Z"}
+    ],
+    "graph": [
+      {"from": "risk_sentinel", "to": "query_transaction_db", "type": "tool"},
+      {"from": "risk_sentinel", "to": "compliance_agent", "type": "agent"},
+      {"from": "compliance_agent", "to": "notify_human", "type": "tool"}
+    ]
+  },
+  "onboarding-005": {
+    "name": "onboarding-005",
+    "description": "New Agent Onboarding Flow",
+    "created_at": "2026-03-19T11:00:00Z",
+    "status": "completed",
+    "task": "Onboard and validate new recruiter_ai agent",
+    "events": [
+      {"seq": 1, "type": "agent_step", "agent": "botbook_orchestrator", "latency_ms": 40, "tokens": 150, "payload": "Register agent: recruiter_ai_alpha", "timestamp": "2026-03-19T11:00:00.040Z"},
+      {"seq": 2, "type": "policy_check", "agent": "botbook_orchestrator", "latency_ms": 12, "tokens": 0, "payload": "Capability validation — hiring, candidate_eval, interview_scheduling — APPROVED", "timestamp": "2026-03-19T11:00:00.052Z"},
+      {"seq": 3, "type": "tool_call", "agent": "botbook_orchestrator", "latency_ms": 90, "tokens": 0, "tool": "issue_lork_id", "input": "recruiter_ai_alpha → lork_7d8e9f0a1b2c", "timestamp": "2026-03-19T11:00:00.142Z"},
+      {"seq": 4, "type": "tool_call", "agent": "botbook_orchestrator", "latency_ms": 75, "tokens": 0, "tool": "issue_vault_id", "input": "recruiter_ai_alpha → vault_3c4d5e6f7a8b", "timestamp": "2026-03-19T11:00:00.217Z"},
+      {"seq": 5, "type": "agent_step", "agent": "botbook_orchestrator", "latency_ms": 30, "tokens": 100, "payload": "Agent onboarded — trust=0.00, badge=unverified, ready for first task", "timestamp": "2026-03-19T11:00:00.247Z"}
+    ],
+    "graph": [
+      {"from": "botbook_orchestrator", "to": "issue_lork_id", "type": "tool"},
+      {"from": "botbook_orchestrator", "to": "issue_vault_id", "type": "tool"}
+    ]
+  }
+}
