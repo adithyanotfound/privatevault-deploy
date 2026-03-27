@@ -467,3 +467,191 @@ class PipelineOrchestrator:
             await asyncio.sleep(0.3)
         succeeded = sum(1 for r in results if r["status"]=="SUCCESS")
         yield sse("pipeline_complete",{"pipeline_id":pid,"total_agents":len(agent_names),"succeeded":succeeded,"blocked":len(agent_names)-succeeded,"results":results})
+
+
+class MeshOrchestrator:
+    """Orchestrates multi-agent mesh governance through PrivateVault + LORK."""
+
+    def __init__(self, orch):
+        self.orch = orch
+
+    async def execute_mesh_stream(self, action: str, amount: float,
+                                   agents: list = None,
+                                   context: dict = None,
+                                   tenant_id: str = None,
+                                   config_override: dict = None) -> AsyncGenerator:
+        """
+        Execute multi-agent mesh decision with real-time SSE streaming.
+
+        Flow:
+          1. Call PrivateVault /mesh/evaluate (runs full pipeline)
+          2. Stream each agent's reasoning as SSE
+          3. Stream consensus result
+          4. Stream policy enforcement
+          5. Stream trust updates
+          6. Stream crypto proof
+          7. Record mesh run in LORK
+        """
+        mesh_id = f"mesh-{uuid.uuid4().hex[:8]}"
+        start_time = time.time()
+
+        if not agents:
+            agents = ["pricing_agent", "risk_agent", "revenue_agent"]
+
+        yield sse("mesh_start", {
+            "mesh_id": mesh_id,
+            "action": action,
+            "amount": amount,
+            "agents": agents,
+            "context": context or {},
+            "timestamp": time.time(),
+        })
+
+        await asyncio.sleep(0.2)
+
+        # Call PrivateVault mesh/evaluate
+        try:
+            async with httpx.AsyncClient(timeout=30) as http:
+                req_body = {
+                    "action_id": mesh_id,
+                    "action": action,
+                    "amount": amount,
+                    "context": context or {},
+                    "agents": agents,
+                    "tenant_id": tenant_id,
+                    "config_override": config_override,
+                }
+
+                resp = await http.post(
+                    f"{self.orch.vault_url}/api/v1/mesh/evaluate",
+                    json=req_body,
+                )
+                result = resp.json()
+
+                # Stream agent reasoning (one by one with delay for visual effect)
+                agent_reasoning = result.get("agent_reasoning", [])
+                for i, reasoning in enumerate(agent_reasoning):
+                    await asyncio.sleep(0.4)
+                    yield sse("agent_reasoning", {
+                        "step": i + 1,
+                        "total_agents": len(agent_reasoning),
+                        "agent": reasoning["agent"],
+                        "static_trust": reasoning["static_trust"],
+                        "dynamic_trust": reasoning["dynamic_trust"],
+                        "decision": reasoning["decision"],
+                        "reason": reasoning["reason"],
+                    })
+
+                # Stream consensus
+                await asyncio.sleep(0.3)
+                consensus = result.get("consensus", {})
+                yield sse("consensus_result", {
+                    "approve_score": consensus.get("approve_score", 0),
+                    "reject_score": consensus.get("reject_score", 0),
+                    "threshold": consensus.get("threshold", 1.5),
+                    "result": consensus.get("result", "UNKNOWN"),
+                    "method": consensus.get("method", "trust_weighted_quorum"),
+                    "drift_detected": consensus.get("drift_detected", False),
+                    "votes": consensus.get("votes", []),
+                })
+
+                # Stream policy enforcement
+                await asyncio.sleep(0.3)
+                policy = result.get("policy_enforcement", {})
+                yield sse("policy_enforcement", {
+                    "pass": policy.get("pass", True),
+                    "reason": policy.get("reason", ""),
+                    "tier": policy.get("tier", ""),
+                    "checks": policy.get("checks", []),
+                })
+
+                # Stream trust updates
+                await asyncio.sleep(0.2)
+                trust_updates = result.get("trust_updates", [])
+                yield sse("trust_update", {
+                    "updates": trust_updates,
+                })
+
+                # Stream crypto proof
+                await asyncio.sleep(0.2)
+                proof = result.get("crypto_proof", {})
+                yield sse("crypto_proof", {
+                    "hash": proof.get("hash", ""),
+                    "payload_hash": proof.get("payload_hash", ""),
+                    "timestamp": proof.get("timestamp", ""),
+                })
+
+                # Record mesh run in LORK for time-travel debugging
+                total_ms = round((time.time() - start_time) * 1000)
+                events_log = result.get("events_log", [])
+
+                await self._record_mesh_run(
+                    http, mesh_id, action, amount, agents,
+                    result, events_log, total_ms
+                )
+
+                # Stream final result
+                await asyncio.sleep(0.2)
+                yield sse("mesh_complete", {
+                    "mesh_id": mesh_id,
+                    "final_decision": result.get("final_decision", "BLOCK"),
+                    "final_reason": result.get("final_reason", ""),
+                    "total_time_ms": total_ms,
+                    "replay_id": result.get("replay_id", mesh_id),
+                    "agents_count": len(agents),
+                    "consensus_result": consensus.get("result", ""),
+                    "policy_pass": policy.get("pass", True),
+                })
+
+        except Exception as e:
+            yield sse("mesh_error", {
+                "mesh_id": mesh_id,
+                "error": str(e),
+                "timestamp": time.time(),
+            })
+
+    async def _record_mesh_run(self, http, mesh_id, action, amount, agents,
+                                result, events_log, total_ms):
+        """Record mesh decision as a LORK run for time-travel debugging."""
+        try:
+            lork_events = []
+            for ev in events_log:
+                lork_events.append({
+                    "seq": ev.get("seq", 0),
+                    "type": ev.get("type", "mesh_event"),
+                    "agent": ev.get("agent", "MeshEngine"),
+                    "latency_ms": ev.get("latency_ms", 0),
+                    "tokens": ev.get("tokens", 0),
+                    "payload": ev.get("payload", ""),
+                })
+
+            await http.post(
+                f"{self.orch.lork_url}/api/v1/runs/record",
+                json={
+                    "run_id": mesh_id,
+                    "name": f"mesh-{'-'.join(agents[:3])}",
+                    "description": f"Multi-agent mesh: {action} ${amount:,.0f}",
+                    "task": f"[MESH] {action} amount=${amount}",
+                    "status": "completed",
+                    "type": "mesh",
+                    "events": lork_events,
+                    "graph": [
+                        {"from": a, "to": "MeshQuorum", "label": "vote"}
+                        for a in agents
+                    ] + [
+                        {"from": "MeshQuorum", "to": "PolicyEngine", "label": "consensus"},
+                        {"from": "PolicyEngine", "to": "FinalDecision", "label": "enforce"},
+                    ],
+                    "mesh_data": {
+                        "agent_reasoning": result.get("agent_reasoning", []),
+                        "consensus": result.get("consensus", {}),
+                        "policy_enforcement": result.get("policy_enforcement", {}),
+                        "trust_updates": result.get("trust_updates", []),
+                        "crypto_proof": result.get("crypto_proof", {}),
+                        "weights_used": result.get("weights_used", {}),
+                    },
+                },
+            )
+        except Exception:
+            pass
+

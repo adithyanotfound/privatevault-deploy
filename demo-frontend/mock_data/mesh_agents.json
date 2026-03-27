@@ -1,0 +1,87 @@
+[
+  {
+    "agent_id": "pricing_agent",
+    "role": "Pricing & Discount Analysis",
+    "description": "Evaluates pricing strategies, discount thresholds, and competitive positioning to optimize deal terms.",
+    "version": "2.1.0",
+    "static_trust": 0.90,
+    "capabilities": ["discount_evaluation", "competitive_analysis", "pricing_strategy"],
+    "policy_rules": {
+      "approve_below_percent": 20,
+      "reject_above_percent": 30
+    },
+    "metrics": {
+      "total_decisions": 847,
+      "accuracy_rate": 0.94,
+      "avg_response_ms": 12
+    }
+  },
+  {
+    "agent_id": "risk_agent",
+    "role": "Risk Assessment",
+    "description": "Analyzes financial exposure, credit risk, fraud indicators, and counterparty risk for governance decisions.",
+    "version": "3.0.1",
+    "static_trust": 0.70,
+    "capabilities": ["risk_assessment", "exposure_analysis", "fraud_detection"],
+    "policy_rules": {
+      "approve_below_amount": 200000,
+      "reject_above_amount": 300000
+    },
+    "metrics": {
+      "total_decisions": 623,
+      "accuracy_rate": 0.87,
+      "avg_response_ms": 18
+    }
+  },
+  {
+    "agent_id": "revenue_agent",
+    "role": "Revenue Impact Analysis",
+    "description": "Forecasts revenue impact, evaluates deal profitability, and analyzes long-term financial implications.",
+    "version": "1.5.0",
+    "static_trust": 0.80,
+    "capabilities": ["revenue_forecasting", "deal_analysis", "profitability"],
+    "policy_rules": {
+      "approve_if_net_positive": true,
+      "reject_loss_threshold_percent": 5
+    },
+    "metrics": {
+      "total_decisions": 512,
+      "accuracy_rate": 0.91,
+      "avg_response_ms": 15
+    }
+  },
+  {
+    "agent_id": "compliance_agent",
+    "role": "Regulatory Compliance",
+    "description": "Checks transactions against KYC, AML, sanctions lists, and regulatory compliance frameworks.",
+    "version": "4.2.0",
+    "static_trust": 0.85,
+    "capabilities": ["compliance", "audit_report", "regulatory_check", "kyc"],
+    "policy_rules": {
+      "block_sanctioned": true,
+      "require_kyc": true
+    },
+    "metrics": {
+      "total_decisions": 1203,
+      "accuracy_rate": 0.99,
+      "avg_response_ms": 8
+    }
+  },
+  {
+    "agent_id": "margin_agent",
+    "role": "Profit Margin Analysis",
+    "description": "Evaluates profit margin impact of deal terms, cost structure, and pricing decisions.",
+    "version": "1.0.0",
+    "static_trust": 0.75,
+    "capabilities": ["margin_analysis", "cost_optimization", "profitability"],
+    "policy_rules": {
+      "approve_above_margin_percent": 15,
+      "reject_below_margin_percent": 10
+    },
+    "metrics": {
+      "total_decisions": 389,
+      "accuracy_rate": 0.88,
+      "avg_response_ms": 14
+    }
+  }
+]

@@ -7,6 +7,12 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+/* ─── API Base URLs (auto-detect local vs production) ─── */
+const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const VAULT_URL = IS_LOCAL ? 'http://localhost:8000' : 'https://privatevault-deploy.vercel.app';
+const BOTBOOK_URL = IS_LOCAL ? 'http://localhost:8001' : 'https://botbook-deploy.vercel.app';
+const LORK_URL = IS_LOCAL ? 'http://localhost:8002' : 'https://lork-deploy.vercel.app';
+
 function sanitize(str) {
     /* strip emoji & non-ASCII so logs stay monospace-clean */
     return String(str).replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, "").trim();
@@ -237,7 +243,7 @@ window.runGovernanceCheck = async function () {
 
     try {
         const t0 = performance.now();
-        const resp = await fetch("https://privatevault-deploy.vercel.app/api/v1/shadow_verify", {
+        const resp = await fetch(`${VAULT_URL}/api/v1/shadow_verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agent_id: agentId, action, amount, recipient }),
@@ -363,7 +369,7 @@ window.registerNewAgent = function () {
 
 async function loadAgents() {
     try {
-        const r = await fetch("https://botbook-deploy.vercel.app/api/agents", { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`${BOTBOOK_URL}/api/agents`, { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const data = await r.json();
         renderAgentList(data.agents || data);
@@ -383,7 +389,7 @@ window.runMatching = async function () {
     const caps = [...document.querySelectorAll(".cap-chip.active")].map(c => c.dataset.cap);
 
     try {
-        const r = await fetch("https://botbook-deploy.vercel.app/api/v1/match", {
+        const r = await fetch(`${BOTBOOK_URL}/api/v1/match`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ task, required_capabilities: caps, min_trust_score: minTrust, max_results: 5 }),
@@ -450,7 +456,7 @@ const CLI_SCRIPTS = {
         { type: "cmd", text: "botbook init" },
         { cls: "terminal-output", type: "out", text: "Initializing BotBook workspace..." },
         { cls: "terminal-success", type: "out", text: "Workspace created: .botbook/" },
-        { cls: "terminal-output", type: "out", text: "LORK endpoint: https://lork-deploy.vercel.app" },
+        { cls: "terminal-output", type: "out", text: "LORK endpoint: ${LORK_URL}" },
         { cls: "terminal-success", type: "out", text: "Ready." },
     ],
     make: [
@@ -1097,7 +1103,7 @@ function renderStats(stats) {
 
 window.selectRun = async function (runId) {
     try {
-        const r = await fetch(`https://lork-deploy.vercel.app/api/v1/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`${LORK_URL}/api/v1/runs/${runId}`, { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const data = await r.json();
         const events = data.events || [];
@@ -1158,7 +1164,7 @@ window.startReplay = async function () {
     let events = [];
     let runTask = "";
     try {
-        const r = await fetch(`https://lork-deploy.vercel.app/api/v1/runs/${runId}/replay`, { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`${LORK_URL}/api/v1/runs/${runId}/replay`, { signal: AbortSignal.timeout(3000) });
         if (r.ok) {
             const data = await r.json();
             events = data.events || [];
@@ -1289,7 +1295,7 @@ window.runFullPipeline = async function () {
     pipeLog("Step 1 — Create Agent Team", ["botbook make --agent data_collector --lork-enabled", "botbook make --agent analyst --lork-enabled", "botbook make --agent reporter --lork-enabled"]);
     await delay(1400);
     try {
-        const r = await fetch("https://botbook-deploy.vercel.app/api/team", {
+        const r = await fetch(`${BOTBOOK_URL}/api/team`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agents: ["data_collector", "analyst", "reporter"] }),
@@ -1308,7 +1314,7 @@ window.runFullPipeline = async function () {
     pipeLog("Step 2 — Execute Workflow", ["botbook run --workflow fintech-pipeline --team team-demo-001", "Scheduling agents...", "Sequential execution plan: data_collector -> analyst -> reporter"]);
     await delay(1600);
     try {
-        const r = await fetch("https://botbook-deploy.vercel.app/api/workflow", {
+        const r = await fetch(`${BOTBOOK_URL}/api/workflow`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ workflow: "fintech-pipeline", team_id: "team-demo-001" }),
@@ -1328,7 +1334,7 @@ window.runFullPipeline = async function () {
     await delay(1200);
     let govResult = "ALLOW";
     try {
-        const r = await fetch("https://privatevault-deploy.vercel.app/api/governance/verify", {
+        const r = await fetch(`${VAULT_URL}/api/governance/verify`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ agent_id: "analyst", action: "transfer", amount: 5000, recipient: "vendor_acme_corp" }),
@@ -1364,8 +1370,10 @@ function renderDiff(declared, actual) {
     container.style.opacity = "0";
     void container.offsetWidth;
 
-    const declaredLines = declared.split("\n");
-    const actualLines = actual.split("\n");
+    const declaredStr = typeof declared === 'string' ? declared : JSON.stringify(declared, null, 2);
+    const actualStr = typeof actual === 'string' ? actual : JSON.stringify(actual, null, 2);
+    const declaredLines = declaredStr.split("\n");
+    const actualLines = actualStr.split("\n");
     const maxLen = Math.max(declaredLines.length, actualLines.length);
 
     let html = "";
@@ -1428,18 +1436,18 @@ window.runDriftDetection = async function (scenarioIdx) {
     const scenario = DRIFT_SCENARIOS[idx % DRIFT_SCENARIOS.length];
     currentScenarioIdx = (idx + 1) % DRIFT_SCENARIOS.length;
 
-    const declaredObj = JSON.parse(scenario.declared);
-    const actualObj = JSON.parse(scenario.actual);
+    const declaredObj = typeof scenario.declared === 'string' ? JSON.parse(scenario.declared) : scenario.declared;
+    const actualObj = typeof scenario.actual === 'string' ? JSON.parse(scenario.actual) : scenario.actual;
 
     renderDiff(scenario.declared, scenario.actual);
 
     const label = $("driftLabel");
-    if (label) label.textContent = scenario.label;
+    if (label) label.textContent = scenario.label || scenario.name || 'Drift Scenario';
 
     // Call real backend drift detection
     let backendResult = null;
     try {
-        const resp = await fetch("https://privatevault-deploy.vercel.app/api/v1/drift_detect", {
+        const resp = await fetch(`${VAULT_URL}/api/v1/drift_detect`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ declared: declaredObj, actual: actualObj }),
@@ -1517,7 +1525,7 @@ window.runDriftDetection = async function (scenarioIdx) {
 async function loadDriftScenarios() {
     // Try to load drift scenarios from backend
     try {
-        const r = await fetch("https://privatevault-deploy.vercel.app/api/v1/drift_scenarios", { signal: AbortSignal.timeout(2000) });
+        const r = await fetch(`${VAULT_URL}/api/v1/drift_scenarios`, { signal: AbortSignal.timeout(2000) });
         if (r.ok) {
             const data = await r.json();
             if (Array.isArray(data) && data.length > 0) {
@@ -1530,7 +1538,7 @@ async function loadDriftScenarios() {
     const scenario = DRIFT_SCENARIOS[0];
     renderDiff(scenario.declared, scenario.actual);
     const label = $("driftLabel");
-    if (label) label.textContent = scenario.label;
+    if (label) label.textContent = scenario.label || scenario.name || 'Drift Scenario';
 }
 
 /* ===================================================================
@@ -1609,7 +1617,7 @@ window.executeLive = async function () {
     if (btn) { btn.disabled = true; btn.innerHTML = `<span class="btn-spinner"></span> Executing...`; }
     resetLiveUI();
     try {
-        const response = await fetch("https://botbook-deploy.vercel.app/api/v1/execute_live", {
+        const response = await fetch(`${BOTBOOK_URL}/api/v1/execute_live`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ task, agent_name: agent }),
@@ -1873,11 +1881,11 @@ function processLiveEvent(type, data) {
 async function checkStatus() {
     let vaultOk = false, botbookOk = false;
     try {
-        const r = await fetch("https://privatevault-deploy.vercel.app/health", { signal: AbortSignal.timeout(2500) });
+        const r = await fetch(`${VAULT_URL}/health`, { signal: AbortSignal.timeout(2500) });
         vaultOk = r.ok;
     } catch { }
     try {
-        const r = await fetch("https://botbook-deploy.vercel.app/health", { signal: AbortSignal.timeout(2500) });
+        const r = await fetch(`${BOTBOOK_URL}/health`, { signal: AbortSignal.timeout(2500) });
         botbookOk = r.ok;
     } catch { }
 
@@ -1891,7 +1899,7 @@ async function checkStatus() {
    =================================================================== */
 async function loadLorkRuns() {
     try {
-        const r = await fetch("https://lork-deploy.vercel.app/api/v1/runs", { signal: AbortSignal.timeout(3000) });
+        const r = await fetch(`${LORK_URL}/api/v1/runs`, { signal: AbortSignal.timeout(3000) });
         if (!r.ok) throw 0;
         const runs = await r.json();
         const sel = $("runSelect");
@@ -1917,6 +1925,399 @@ async function loadLorkRuns() {
 window.loadLorkRuns = loadLorkRuns;
 
 /* ===================================================================
+   MULTI-AGENT MESH GOVERNANCE
+   =================================================================== */
+
+const MESH_AGENTS_DEFAULT = [
+    { agent_id: "pricing_agent", role: "Pricing & Discount Analysis", static_trust: 0.90, capabilities: ["discount_evaluation", "competitive_analysis"] },
+    { agent_id: "risk_agent", role: "Risk Assessment", static_trust: 0.70, capabilities: ["risk_assessment", "exposure_analysis"] },
+    { agent_id: "revenue_agent", role: "Revenue Impact Analysis", static_trust: 0.80, capabilities: ["revenue_forecasting", "deal_analysis"] },
+    { agent_id: "compliance_agent", role: "Regulatory Compliance", static_trust: 0.85, capabilities: ["compliance", "regulatory_check"] },
+    { agent_id: "margin_agent", role: "Profit Margin Analysis", static_trust: 0.75, capabilities: ["margin_analysis", "cost_optimization"] },
+];
+
+const MESH_SCENARIOS_DEFAULT = [
+    { id: "safe_discount", name: "Safe Discount ($50K)", action: "approve_discount", amount: 50000, context: { discount_percent: 10, deal_value: 500000, customer: "Acme Corp" }, agents: ["pricing_agent", "risk_agent", "revenue_agent"], expected: "ALLOW" },
+    { id: "split_decision", name: "Split Decision ($300K)", action: "approve_discount", amount: 300000, context: { discount_percent: 18, deal_value: 1500000, customer: "Salesforce Enterprise" }, agents: ["pricing_agent", "risk_agent", "revenue_agent"], expected: "BLOCK" },
+    { id: "unanimous_block", name: "Unanimous Block ($500K)", action: "approve_discount", amount: 500000, context: { discount_percent: 30, deal_value: 1500000, customer: "BigCo Industries" }, agents: ["pricing_agent", "risk_agent", "revenue_agent"], expected: "BLOCK" },
+    { id: "compliance_flag", name: "Compliance Flag", action: "approve_discount", amount: 50000, context: { discount_percent: 5, deal_value: 500000, recipient: "sanctioned_entity_offshore" }, agents: ["pricing_agent", "risk_agent", "compliance_agent"], expected: "BLOCK" },
+    { id: "tight_quorum", name: "All 5 Agents ($180K)", action: "approve_discount", amount: 180000, context: { discount_percent: 15, deal_value: 1200000, customer: "JP Morgan Chase" }, agents: ["pricing_agent", "risk_agent", "revenue_agent", "compliance_agent", "margin_agent"], expected: "ALLOW" },
+];
+
+let meshAgents = [...MESH_AGENTS_DEFAULT];
+let meshScenarios = [...MESH_SCENARIOS_DEFAULT];
+let meshRunning = false;
+
+function renderMeshRoster(agents) {
+    const roster = $("meshAgentRoster");
+    if (!roster) return;
+    roster.innerHTML = agents.map(a => {
+        const trustPct = Math.round(a.static_trust * 100);
+        const trustColor = trustPct >= 85 ? 'var(--green)' : trustPct >= 70 ? 'var(--amber)' : 'var(--red)';
+        return `<div class="panel" style="padding:14px;position:relative;overflow:hidden">
+            <div style="position:absolute;top:0;left:0;height:3px;width:${trustPct}%;background:${trustColor};border-radius:0 0 2px 0;transition:width .6s ease"></div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:4px">${esc(a.agent_id.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()))}</div>
+            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px">${esc(a.role)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:11px;color:var(--text-secondary)">Trust</span>
+                <span style="font-size:13px;font-weight:700;color:${trustColor};font-family:var(--font-mono)">${trustPct}%</span>
+            </div>
+            <div style="font-size:10px;color:var(--text-secondary);margin-top:6px">${(a.capabilities || []).slice(0, 3).join(' | ')}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderMeshPresets(scenarios) {
+    const container = $("meshPresets");
+    if (!container) return;
+    container.innerHTML = scenarios.map(s => {
+        const exp = s.expected || s.expected_result || "BLOCK";
+        const color = exp === "ALLOW" ? 'rgba(34,197,94,0.12)' : 'rgba(248,113,113,0.12)';
+        const border = exp === "ALLOW" ? 'rgba(34,197,94,0.3)' : 'rgba(248,113,113,0.3)';
+        const textColor = exp === "ALLOW" ? '#22c55e' : '#f87171';
+        return `<button class="btn btn-secondary" onclick="loadMeshPreset('${s.id}')"
+            style="font-size:12px;padding:6px 14px;background:${color};border:1px solid ${border};color:${textColor}">
+            ${esc(s.name)} <span style="opacity:0.6;font-size:10px;margin-left:4px">${exp}</span>
+        </button>`;
+    }).join('');
+}
+
+window.loadMeshPreset = function(id) {
+    const scenario = meshScenarios.find(s => s.id === id);
+    if (!scenario) return;
+    const actionEl = $("meshAction");
+    const amountEl = $("meshAmount");
+    const discountEl = $("meshDiscountPct");
+    if (actionEl) actionEl.value = scenario.action || "approve_discount";
+    if (amountEl) amountEl.value = scenario.amount || 0;
+    if (discountEl) discountEl.value = scenario.context?.discount_percent || 0;
+    // Auto-run
+    runMeshDecision(scenario.agents, scenario.context);
+};
+
+window.runMeshDecision = async function(agents, contextOverride) {
+    if (meshRunning) return;
+    meshRunning = true;
+    const btn = $("meshRunBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Running..."; }
+
+    const action = $("meshAction")?.value || "approve_discount";
+    const amount = parseFloat($("meshAmount")?.value || "0");
+    const discountPct = parseInt($("meshDiscountPct")?.value || "18");
+
+    // Reset output
+    const output = $("meshOutput");
+    if (output) output.style.display = "block";
+    ["meshAgentCards", "meshConsensusBar", "meshConsensusResult", "meshPolicyChecks", "meshTrustUpdates", "meshFinalDecision"].forEach(id => {
+        const el = $(id);
+        if (el) el.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:8px">Waiting...</div>';
+    });
+
+    const context = contextOverride || {
+        discount_percent: discountPct,
+        deal_value: Math.round(amount / (discountPct / 100 || 1)),
+        customer: "Demo Enterprise",
+    };
+
+    try {
+        const response = await fetch(`${BOTBOOK_URL}/api/v1/execute_mesh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action,
+                amount,
+                agents: agents || ["pricing_agent", "risk_agent", "revenue_agent"],
+                context,
+                tenant_id: "demo",
+            }),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+            let eventType = "";
+            for (const line of lines) {
+                if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+                else if (line.startsWith("data: ") && eventType) {
+                    try { processMeshEvent(eventType, JSON.parse(line.slice(6))); } catch (e) { console.error("Mesh SSE error", e); }
+                    eventType = "";
+                }
+            }
+        }
+    } catch (e) {
+        // Fallback: call PrivateVault directly if BotBook isn't running
+        try {
+            const resp = await fetch(`${VAULT_URL}/api/v1/mesh/evaluate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action, amount, context,
+                    agents: agents || ["pricing_agent", "risk_agent", "revenue_agent"],
+                    tenant_id: "demo",
+                }),
+                signal: AbortSignal.timeout(10000),
+            });
+            if (resp.ok) {
+                const result = await resp.json();
+                renderMeshResultDirect(result);
+            } else {
+                showMeshError("Backend returned " + resp.status);
+            }
+        } catch (e2) {
+            showMeshError("Could not connect to backend: " + e2.message);
+        }
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = "Run Mesh Decision"; }
+    meshRunning = false;
+};
+
+let meshAgentCardsHtml = [];
+
+function processMeshEvent(type, data) {
+    switch (type) {
+        case "mesh_start":
+            meshAgentCardsHtml = [];
+            $("meshAgentCards").innerHTML = '<div style="font-size:12px;color:var(--text-secondary);padding:8px">Agents reasoning independently...</div>';
+            break;
+
+        case "agent_reasoning": {
+            const isApprove = data.decision === "APPROVE";
+            const bgColor = isApprove ? 'rgba(34,197,94,0.06)' : 'rgba(248,113,113,0.06)';
+            const borderColor = isApprove ? 'rgba(34,197,94,0.25)' : 'rgba(248,113,113,0.25)';
+            const badge = isApprove ? '<span style="background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600">APPROVE</span>'
+                                    : '<span style="background:rgba(248,113,113,0.15);color:#f87171;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600">REJECT</span>';
+
+            const card = `<div class="panel" style="padding:14px;background:${bgColor};border:1px solid ${borderColor};animation:fadeSlideIn .3s ease">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(data.agent.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()))}</span>
+                    ${badge}
+                </div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.4">${esc(data.reason)}</div>
+                <div style="display:flex;gap:12px;font-size:11px;color:var(--text-secondary)">
+                    <span>Static: <strong style="color:var(--text-primary)">${(data.static_trust || 0).toFixed(2)}</strong></span>
+                    <span>Dynamic: <strong style="color:var(--text-primary)">${(data.dynamic_trust || 0).toFixed(2)}</strong></span>
+                </div>
+            </div>`;
+            meshAgentCardsHtml.push(card);
+            $("meshAgentCards").innerHTML = meshAgentCardsHtml.join('');
+            break;
+        }
+
+        case "consensus_result": {
+            const approve = data.approve_score || 0;
+            const reject = data.reject_score || 0;
+            const total = approve + reject || 1;
+            const approvePct = Math.round((approve / total) * 100);
+            const rejectPct = 100 - approvePct;
+            const isApproved = data.result === "APPROVE";
+            const driftLabel = data.drift_detected ? ' <span style="color:var(--amber);font-size:10px">[DRIFT]</span>' : '';
+
+            $("meshConsensusBar").innerHTML = `
+                <div style="display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--bg-elevated)">
+                    <div style="width:${approvePct}%;background:linear-gradient(90deg,#22c55e,#4ade80);transition:width .8s ease;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">${approve.toFixed(2)}</div>
+                    <div style="width:${rejectPct}%;background:linear-gradient(90deg,#f87171,#ef4444);transition:width .8s ease;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff">${reject.toFixed(2)}</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-secondary)">
+                    <span>APPROVE (${approvePct}%)</span>
+                    <span>Threshold: ${data.threshold || 1.5}</span>
+                    <span>REJECT (${rejectPct}%)</span>
+                </div>`;
+            $("meshConsensusResult").innerHTML = `<div style="text-align:center;margin-top:8px">
+                <span style="font-size:14px;font-weight:700;color:${isApproved ? 'var(--green)' : 'var(--red)'}">${data.result}${driftLabel}</span>
+                <span style="font-size:11px;color:var(--text-secondary);margin-left:8px">${data.method || 'trust_weighted_quorum'}</span>
+            </div>`;
+            break;
+        }
+
+        case "policy_enforcement": {
+            const pass = data.pass;
+            const checks = data.checks || [];
+            const checkHtml = checks.map(c => {
+                const ok = c.pass || c.status === "pass";
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
+                    <span style="color:${ok ? 'var(--green)' : 'var(--red)'};font-weight:700">${ok ? '[OK]' : '[X]'}</span>
+                    <span style="color:var(--text-primary)">${esc(c.check || c.name || '')}</span>
+                    <span style="color:var(--text-secondary);font-size:11px">${esc(c.detail || c.reason || '')}</span>
+                </div>`;
+            }).join('');
+
+            $("meshPolicyChecks").innerHTML = `
+                <div style="padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:13px;font-weight:600;
+                    background:${pass ? 'rgba(34,197,94,0.08)' : 'rgba(248,113,113,0.08)'};
+                    color:${pass ? 'var(--green)' : 'var(--red)'}">
+                    Policy: ${pass ? 'PASS' : 'FAIL'} -- ${esc(data.reason || '')}
+                </div>
+                ${checkHtml}`;
+            break;
+        }
+
+        case "trust_update": {
+            const updates = data.updates || [];
+            $("meshTrustUpdates").innerHTML = updates.map(u => {
+                const up = (u.new_trust || 0) > (u.old_trust || 0);
+                const arrow = up ? '&uarr;' : '&darr;';
+                const color = up ? 'var(--green)' : 'var(--red)';
+                return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
+                    <span style="color:${color};font-weight:700;font-size:14px">${arrow}</span>
+                    <span style="color:var(--text-primary);font-weight:500">${esc(u.agent_id || '')}</span>
+                    <span style="font-family:var(--font-mono);color:var(--text-secondary)">${(u.old_trust || 0).toFixed(3)}</span>
+                    <span style="color:var(--text-secondary)">&rarr;</span>
+                    <span style="font-family:var(--font-mono);color:${color};font-weight:600">${(u.new_trust || 0).toFixed(3)}</span>
+                    <span style="font-size:11px;color:var(--text-secondary)">(${esc(u.reason || '')})</span>
+                </div>`;
+            }).join('');
+            break;
+        }
+
+        case "crypto_proof": {
+            // Handled by mesh_complete
+            break;
+        }
+
+        case "mesh_complete": {
+            const isAllow = data.final_decision === "ALLOW";
+            $("meshFinalDecision").innerHTML = `
+                <div style="text-align:center;padding:16px">
+                    <div style="font-size:28px;font-weight:800;margin-bottom:8px;color:${isAllow ? 'var(--green)' : 'var(--red)'}">${data.final_decision}</div>
+                    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;max-width:500px;margin-left:auto;margin-right:auto">${esc(data.final_reason || '')}</div>
+                    <div style="display:flex;justify-content:center;gap:16px;font-size:11px;color:var(--text-secondary);flex-wrap:wrap">
+                        <span>Mesh ID: <strong style="font-family:var(--font-mono)">${esc(data.mesh_id || '')}</strong></span>
+                        <span>Agents: <strong>${data.agents_count || 0}</strong></span>
+                        <span>Time: <strong>${data.total_time_ms || 0}ms</strong></span>
+                        <span>Consensus: <strong style="color:${data.consensus_result === 'APPROVE' ? 'var(--green)' : 'var(--red)'}">${data.consensus_result || ''}</strong></span>
+                        <span>Policy: <strong style="color:${data.policy_pass ? 'var(--green)' : 'var(--red)'}">${data.policy_pass ? 'PASS' : 'FAIL'}</strong></span>
+                    </div>
+                    <div style="margin-top:12px;font-size:11px;color:var(--text-secondary);font-family:var(--font-mono);word-break:break-all">
+                        Replay ID: ${esc(data.replay_id || data.mesh_id || '')}
+                    </div>
+                </div>`;
+            break;
+        }
+
+        case "mesh_error":
+            showMeshError(data.error || "Unknown error");
+            break;
+    }
+}
+
+function renderMeshResultDirect(result) {
+    // Render from direct API call (fallback when SSE unavailable)
+    const reasoning = result.agent_reasoning || [];
+    reasoning.forEach((r, i) => {
+        processMeshEvent("agent_reasoning", {
+            agent: r.agent, decision: r.decision, reason: r.reason,
+            static_trust: r.static_trust, dynamic_trust: r.dynamic_trust,
+        });
+    });
+
+    const consensus = result.consensus || {};
+    processMeshEvent("consensus_result", consensus);
+
+    const policy = result.policy_enforcement || {};
+    processMeshEvent("policy_enforcement", policy);
+
+    processMeshEvent("trust_update", { updates: result.trust_updates || [] });
+
+    processMeshEvent("mesh_complete", {
+        final_decision: result.final_decision,
+        final_reason: result.final_reason,
+        mesh_id: result.replay_id,
+        agents_count: reasoning.length,
+        total_time_ms: result.total_time_ms,
+        consensus_result: consensus.result,
+        policy_pass: policy.pass,
+        replay_id: result.replay_id,
+    });
+}
+
+function showMeshError(msg) {
+    $("meshFinalDecision").innerHTML = `<div style="text-align:center;padding:16px;color:var(--red)">
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px">Error</div>
+        <div style="font-size:12px">${esc(msg)}</div>
+    </div>`;
+}
+
+window.applyMeshWeights = async function() {
+    const threshold = parseFloat($("meshThreshold")?.value || "1.5");
+    const autoApprove = parseInt($("meshAutoApprove")?.value || "250000");
+    const maxDiscount = parseInt($("meshMaxDiscount")?.value || "25");
+    const blend = parseFloat($("meshBlend")?.value || "0.6");
+
+    try {
+        const resp = await fetch(`${VAULT_URL}/api/v1/mesh/configure`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                tenant_id: "demo",
+                weights: {
+                    consensus: {
+                        quorum_threshold: threshold,
+                    },
+                    policy_thresholds: {
+                        auto_approve_limit: autoApprove,
+                        max_discount_percent: maxDiscount,
+                        max_discount_amount: autoApprove,
+                    },
+                    dynamic_trust: {
+                        static_dynamic_blend: blend,
+                    },
+                }
+            }),
+            signal: AbortSignal.timeout(3000),
+        });
+        alert("Weights applied successfully!");
+    } catch {
+        alert("Could not reach backend. Weights will apply locally on next run.");
+    }
+};
+
+window.resetMeshWeights = async function() {
+    $("meshThreshold").value = "1.5";
+    $("meshThresholdVal").textContent = "1.5";
+    $("meshAutoApprove").value = "250000";
+    $("meshMaxDiscount").value = "25";
+    $("meshBlend").value = "0.6";
+    $("meshBlendVal").textContent = "0.6";
+
+    try {
+        await fetch(`${VAULT_URL}/api/v1/mesh/configure/reset?tenant_id=demo`, {
+            method: "POST",
+            signal: AbortSignal.timeout(2000),
+        });
+    } catch {}
+    alert("Weights reset to defaults.");
+};
+
+async function initMeshSection() {
+    // Try loading agents from backend
+    try {
+        const r = await fetch(`${VAULT_URL}/api/v1/mesh/agents`, { signal: AbortSignal.timeout(3000) });
+        if (r.ok) {
+            const data = await r.json();
+            if (Array.isArray(data) && data.length > 0) meshAgents = data;
+        }
+    } catch {}
+    renderMeshRoster(meshAgents);
+
+    // Try loading scenarios from mock data
+    try {
+        const r = await fetch("mock_data/mesh_scenarios.json", { signal: AbortSignal.timeout(2000) });
+        if (r.ok) {
+            const data = await r.json();
+            if (Array.isArray(data) && data.length > 0) meshScenarios = data;
+        }
+    } catch {}
+    renderMeshPresets(meshScenarios);
+}
+
+/* ===================================================================
    BOOT
    =================================================================== */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1930,6 +2331,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     /* Load real LORK data instead of hardcoded fallbacks */
     await loadLorkRuns();
     loadDriftScenarios();
+    initMeshSection();
 
     /* run initial matching */
     runMatching();

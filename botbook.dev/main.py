@@ -520,9 +520,9 @@ class PipelineRequest(BaseModel):
 async def execute_live(request: ExecuteRequest):
     from orchestrator import LiveOrchestrator
     orch = LiveOrchestrator(
-        vault_url="https://privatevault-deploy.vercel.app",
-        lork_url="https://lork-deploy.vercel.app",
-        botbook_url="https://botbook-deploy.vercel.app",
+        vault_url=os.getenv("VAULT_URL", "https://privatevault-deploy.vercel.app"),
+        lork_url=os.getenv("LORK_URL", "https://lork-deploy.vercel.app"),
+        botbook_url=os.getenv("BOTBOOK_URL", "https://botbook-deploy.vercel.app"),
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )
@@ -536,9 +536,9 @@ async def execute_live(request: ExecuteRequest):
 async def execute_pipeline(request: PipelineRequest):
     from orchestrator import LiveOrchestrator, PipelineOrchestrator
     orch = LiveOrchestrator(
-        vault_url="https://privatevault-deploy.vercel.app",
-        lork_url="https://lork-deploy.vercel.app",
-        botbook_url="https://botbook-deploy.vercel.app",
+        vault_url=os.getenv("VAULT_URL", "https://privatevault-deploy.vercel.app"),
+        lork_url=os.getenv("LORK_URL", "https://lork-deploy.vercel.app"),
+        botbook_url=os.getenv("BOTBOOK_URL", "https://botbook-deploy.vercel.app"),
         agents_store=agents_store,
         gemini_key=os.getenv("GEMINI_API_KEY",""),
     )
@@ -549,6 +549,43 @@ async def execute_pipeline(request: PipelineRequest):
         headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
     )
 
+
+class MeshRequest(BaseModel):
+    action: str = "approve_discount"
+    amount: float = 0
+    agents: Optional[List[str]] = None
+    context: Optional[dict] = None
+    tenant_id: Optional[str] = None
+    config_override: Optional[dict] = None
+
+
+@app.post("/api/v1/execute_mesh")
+async def execute_mesh(request: MeshRequest):
+    """Execute a multi-agent mesh decision with real-time SSE streaming."""
+    from orchestrator import LiveOrchestrator, MeshOrchestrator
+    orch = LiveOrchestrator(
+        vault_url=os.getenv("VAULT_URL", "https://privatevault-deploy.vercel.app"),
+        lork_url=os.getenv("LORK_URL", "https://lork-deploy.vercel.app"),
+        botbook_url=os.getenv("BOTBOOK_URL", "https://botbook-deploy.vercel.app"),
+        agents_store=agents_store,
+        gemini_key=os.getenv("GEMINI_API_KEY",""),
+    )
+    mesh = MeshOrchestrator(orch)
+    return StreamingResponse(
+        mesh.execute_mesh_stream(
+            action=request.action,
+            amount=request.amount,
+            agents=request.agents,
+            context=request.context,
+            tenant_id=request.tenant_id,
+            config_override=request.config_override,
+        ),
+        media_type="text/event-stream",
+        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8001)
+

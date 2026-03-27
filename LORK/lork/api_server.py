@@ -249,7 +249,7 @@ async def fork_run(run_id: str, fork_at_seq: int = 1):
 
 @app.post("/api/v1/runs/record")
 async def record_run(run_data: dict):
-    """Record a new run from the live orchestrator."""
+    """Record a new run from the live orchestrator (supports both single and mesh runs)."""
     import uuid as _uuid
     run_id = run_data.get("run_id", f"run-{_uuid.uuid4().hex[:8]}")
     raw_events = run_data.get("events", [])
@@ -262,7 +262,7 @@ async def record_run(run_data: dict):
             "tool": e.get("tool"), "input": e.get("input"),
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         })
-    runs_store[run_id] = {
+    run_record = {
         "name": run_data.get("name", run_id),
         "description": run_data.get("description",""),
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -270,9 +270,41 @@ async def record_run(run_data: dict):
         "task": run_data.get("task",""),
         "events": events,
         "graph": run_data.get("graph",[]),
+        "type": run_data.get("type", "single"),  # "single" or "mesh"
     }
-    return {"run_id": run_id, "events_recorded": len(events), "status": "recorded"}
+    # Store mesh-specific data if present
+    if run_data.get("mesh_data"):
+        run_record["mesh_data"] = run_data["mesh_data"]
+    runs_store[run_id] = run_record
+    return {"run_id": run_id, "events_recorded": len(events), "status": "recorded",
+            "type": run_record["type"]}
+
+
+@app.get("/api/v1/runs/{run_id}/mesh_votes")
+def mesh_votes(run_id: str):
+    """Get mesh agent vote breakdown for a mesh-type run."""
+    run = runs_store.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    mesh_data = run.get("mesh_data", {})
+    if not mesh_data:
+        raise HTTPException(status_code=400,
+                            detail="Not a mesh run. Use /inspect for single-agent runs.")
+
+    return {
+        "run_id": run_id,
+        "type": "mesh",
+        "agent_reasoning": mesh_data.get("agent_reasoning", []),
+        "consensus": mesh_data.get("consensus", {}),
+        "policy_enforcement": mesh_data.get("policy_enforcement", {}),
+        "trust_updates": mesh_data.get("trust_updates", []),
+        "crypto_proof": mesh_data.get("crypto_proof", {}),
+        "weights_used": mesh_data.get("weights_used", {}),
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8002)
+

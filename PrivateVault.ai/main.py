@@ -433,6 +433,155 @@ async def get_shadow_metrics():
         "merkle_root": compute_merkle_hash("root", str(total), str(blocked))
     }
 
+# --- MULTI-AGENT MESH GOVERNANCE ---
+from coordination.mesh.trust_registry import TrustRegistry
+from coordination.mesh.decision_engine import MeshDecisionEngine
+from coordination.trust.trust_engine import TrustEngine
+from coordination.trust.weight_config import (
+    get_weights, set_tenant_weights, get_tenant_weights,
+    reset_tenant_weights, list_tenants, DEFAULT_WEIGHTS,
+)
+
+# Shared instances (persist across requests)
+mesh_trust_registry = TrustRegistry()
+mesh_trust_engine = TrustEngine()
+mesh_decision_engine = MeshDecisionEngine(
+    trust_registry=mesh_trust_registry,
+    trust_engine=mesh_trust_engine,
+)
+
+# Default mesh agents with trust scores
+DEFAULT_MESH_AGENTS = {
+    "pricing_agent": {"trust": 0.90, "role": "Pricing & Discount Analysis",
+        "capabilities": ["discount_evaluation", "competitive_analysis", "pricing_strategy"]},
+    "risk_agent": {"trust": 0.70, "role": "Risk Assessment",
+        "capabilities": ["risk_assessment", "exposure_analysis", "fraud_detection"]},
+    "revenue_agent": {"trust": 0.80, "role": "Revenue Impact Analysis",
+        "capabilities": ["revenue_forecasting", "deal_analysis", "profitability"]},
+    "compliance_agent": {"trust": 0.85, "role": "Regulatory Compliance",
+        "capabilities": ["compliance", "audit_report", "regulatory_check", "kyc"]},
+    "margin_agent": {"trust": 0.75, "role": "Profit Margin Analysis",
+        "capabilities": ["margin_analysis", "cost_optimization", "profitability"]},
+}
+
+@app.on_event("startup")
+async def init_mesh_agents():
+    """Initialize mesh agents with default trust scores."""
+    for agent_id, info in DEFAULT_MESH_AGENTS.items():
+        mesh_trust_registry.set_score(agent_id, info["trust"])
+        mesh_trust_engine.initialize_agent(agent_id, info["trust"])
+
+
+class MeshEvaluateRequest(BaseModel):
+    action_id: Optional[str] = None
+    action: str = "approve_discount"
+    amount: float = 0
+    context: Optional[dict] = None
+    agents: Optional[List[str]] = None
+    tenant_id: Optional[str] = None
+    config_override: Optional[dict] = None
+
+
+@app.post("/api/v1/mesh/evaluate")
+async def mesh_evaluate(request: MeshEvaluateRequest):
+    """
+    Run the full multi-agent decision pipeline.
+    Multiple agents independently reason, votes are trust-weighted,
+    consensus is reached, then hard policy enforcement runs.
+    """
+    agents = request.agents or ["pricing_agent", "risk_agent", "revenue_agent"]
+    req_dict = {
+        "action_id": request.action_id,
+        "action": request.action,
+        "amount": request.amount,
+        "context": request.context or {},
+        "tenant_id": request.tenant_id,
+    }
+
+    # Temporarily apply tenant override if provided
+    if request.tenant_id:
+        mesh_decision_engine.tenant_id = request.tenant_id
+
+    result = mesh_decision_engine.full_pipeline(
+        request=req_dict,
+        agents=agents,
+        config_override=request.config_override,
+    )
+    return result
+
+
+class MeshConfigRequest(BaseModel):
+    tenant_id: str = "default"
+    weights: dict
+
+
+@app.post("/api/v1/mesh/configure")
+async def mesh_configure(request: MeshConfigRequest):
+    """Update weight configuration for a tenant."""
+    set_tenant_weights(request.tenant_id, request.weights)
+    return {
+        "status": "updated",
+        "tenant_id": request.tenant_id,
+        "active_weights": get_weights(request.tenant_id),
+    }
+
+
+@app.get("/api/v1/mesh/configure")
+async def mesh_get_config(tenant_id: str = None):
+    """Get current weight configuration."""
+    if tenant_id:
+        overrides = get_tenant_weights(tenant_id)
+        return {
+            "tenant_id": tenant_id,
+            "overrides": overrides,
+            "effective_weights": get_weights(tenant_id),
+        }
+    return {
+        "tenants": list_tenants(),
+        "default_weights": DEFAULT_WEIGHTS,
+    }
+
+
+@app.post("/api/v1/mesh/configure/reset")
+async def mesh_reset_config(tenant_id: str = "default"):
+    """Reset a tenant's config back to defaults."""
+    reset_tenant_weights(tenant_id)
+    return {"status": "reset", "tenant_id": tenant_id}
+
+
+@app.get("/api/v1/mesh/audit/{action_id}")
+async def mesh_audit(action_id: str):
+    """Get full decision audit trail for a completed action."""
+    audit = mesh_decision_engine.get_audit(action_id)
+    if not audit:
+        raise HTTPException(status_code=404, detail=f"Action {action_id} not found")
+    return audit
+
+
+@app.get("/api/v1/mesh/audits")
+async def mesh_list_audits(limit: int = 50):
+    """List recent mesh decision audits."""
+    return mesh_decision_engine.list_audits(limit)
+
+
+@app.get("/api/v1/mesh/agents")
+async def mesh_agents():
+    """Get mesh agent roster with trust scores."""
+    agents = []
+    for agent_id, info in DEFAULT_MESH_AGENTS.items():
+        static_trust = mesh_trust_registry.get(agent_id)
+        dynamic_trust = mesh_trust_engine.get_combined_score(agent_id, static_trust)
+        agents.append({
+            "agent_id": agent_id,
+            "role": info["role"],
+            "capabilities": info["capabilities"],
+            "static_trust": round(static_trust, 4),
+            "dynamic_trust": round(dynamic_trust, 4),
+            "history": mesh_trust_engine.get_history(agent_id)[-5:],
+        })
+    return agents
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,0 +1,79 @@
+[
+  {
+    "id": "safe_discount",
+    "name": "Safe Discount (10%, $50K)",
+    "description": "Low-risk discount within all thresholds - all agents approve",
+    "action": "approve_discount",
+    "amount": 50000,
+    "context": {
+      "discount_percent": 10,
+      "deal_value": 500000,
+      "customer": "Acme Corp",
+      "kyc_status": "verified"
+    },
+    "agents": ["pricing_agent", "risk_agent", "revenue_agent"],
+    "expected_result": "ALLOW",
+    "expected_consensus": "APPROVE"
+  },
+  {
+    "id": "split_decision",
+    "name": "Split Decision (18%, $300K)",
+    "description": "Agents split - consensus approves but policy blocks (exceeds $250K limit)",
+    "action": "approve_discount",
+    "amount": 300000,
+    "context": {
+      "discount_percent": 18,
+      "deal_value": 1500000,
+      "customer": "Salesforce Enterprise"
+    },
+    "agents": ["pricing_agent", "risk_agent", "revenue_agent"],
+    "expected_result": "BLOCK",
+    "expected_consensus": "APPROVE"
+  },
+  {
+    "id": "unanimous_block",
+    "name": "Unanimous Block (30%, $500K)",
+    "description": "All agents reject due to extreme risk - unanimous block",
+    "action": "approve_discount",
+    "amount": 500000,
+    "context": {
+      "discount_percent": 30,
+      "deal_value": 1500000,
+      "customer": "BigCo Industries"
+    },
+    "agents": ["pricing_agent", "risk_agent", "revenue_agent"],
+    "expected_result": "BLOCK",
+    "expected_consensus": "REJECT"
+  },
+  {
+    "id": "compliance_flag",
+    "name": "Compliance Flag (Sanctions)",
+    "description": "Compliance agent catches sanctioned recipient - blocked by compliance",
+    "action": "approve_discount",
+    "amount": 50000,
+    "context": {
+      "discount_percent": 5,
+      "deal_value": 500000,
+      "customer": "International Ltd",
+      "recipient": "sanctioned_entity_offshore"
+    },
+    "agents": ["pricing_agent", "risk_agent", "compliance_agent"],
+    "expected_result": "BLOCK",
+    "expected_consensus": "REJECT"
+  },
+  {
+    "id": "tight_quorum",
+    "name": "Tight Quorum (All 5 Agents)",
+    "description": "All 5 agents vote - demonstrates trust weighting with tight margins",
+    "action": "approve_discount",
+    "amount": 180000,
+    "context": {
+      "discount_percent": 15,
+      "deal_value": 1200000,
+      "customer": "JP Morgan Chase"
+    },
+    "agents": ["pricing_agent", "risk_agent", "revenue_agent", "compliance_agent", "margin_agent"],
+    "expected_result": "ALLOW",
+    "expected_consensus": "APPROVE"
+  }
+]

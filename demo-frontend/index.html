@@ -50,6 +50,7 @@
                 <a href="#lork" class="nav-link">LORK</a>
                 <a href="#live" class="nav-link">Live Console</a>
                 <a href="#demo" class="nav-link">Pipeline</a>
+                <a href="#mesh" class="nav-link">Multi-Agent</a>
                 <a href="#shadow" class="nav-link">Shadow Mode</a>
             </div>
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" onclick="toggleTheme()">
@@ -378,11 +379,17 @@
                     <div class="gov-presets">
                         <span class="form-label" style="display:block;margin-bottom:10px;">quick scenarios</span>
                         <div class="preset-grid">
-                            <button class="preset-btn preset-allow" onclick="setPreset('allow')">✅ $5k Auto-Approve</button>
-                            <button class="preset-btn" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;" onclick="setPreset('review')">⏳ $18.5k Human Review</button>
-                            <button class="preset-btn preset-block" onclick="setPreset('block_amount')">🚫 $42k Hard Block</button>
-                            <button class="preset-btn preset-block" onclick="setPreset('block_kyc')">Anon Wallet</button>
-                            <button class="preset-btn preset-allow" onclick="setPreset('allow_query')">Balance Query</button>
+                            <button class="preset-btn preset-allow" onclick="setPreset('allow')">✅ $5k
+                                Auto-Approve</button>
+                            <button class="preset-btn"
+                                style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;"
+                                onclick="setPreset('review')">⏳ $18.5k Human Review</button>
+                            <button class="preset-btn preset-block" onclick="setPreset('block_amount')">🚫 $42k Hard
+                                Block</button>
+                            <button class="preset-btn preset-block" onclick="setPreset('block_kyc')">Anon
+                                Wallet</button>
+                            <button class="preset-btn preset-allow" onclick="setPreset('allow_query')">Balance
+                                Query</button>
                         </div>
                     </div>
                 </div>
@@ -654,14 +661,24 @@
                                 onclick="executeLive()">&#9654; Execute Live</button>
                         </div>
                         <div class="live-presets">
-                            <span class="form-label" style="display:block;margin-bottom:8px;width:100%;">presets — 3-tier governance</span>
-                            <button class="preset-btn preset-allow" onclick="setLivePreset('safe_transfer')">✅ Safe $5k</button>
-                            <button class="preset-btn" style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;" onclick="setLivePreset('review_transfer')">⏳ Review $18.5k</button>
-                            <button class="preset-btn preset-block" onclick="setLivePreset('large_transfer')">🚫 Block $42k</button>
-                            <button class="preset-btn preset-block" onclick="setLivePreset('anon_wallet')">Anon Wallet</button>
-                            <button class="preset-btn preset-allow" onclick="setLivePreset('transfer_email')">💸 Transfer + Email</button>
-                            <button class="preset-btn preset-allow" onclick="setLivePreset('balance_check')">Analysis</button>
-                            <button class="preset-btn" style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.35);color:#a855f7;font-weight:700;" onclick="setLivePreset('drift_attack')">🔴 Drift Attack</button>
+                            <span class="form-label" style="display:block;margin-bottom:8px;width:100%;">presets —
+                                3-tier governance</span>
+                            <button class="preset-btn preset-allow" onclick="setLivePreset('safe_transfer')">✅ Safe
+                                $5k</button>
+                            <button class="preset-btn"
+                                style="background:rgba(245,158,11,0.08);border-color:rgba(245,158,11,0.25);color:#f59e0b;"
+                                onclick="setLivePreset('review_transfer')">⏳ Review $18.5k</button>
+                            <button class="preset-btn preset-block" onclick="setLivePreset('large_transfer')">🚫 Block
+                                $42k</button>
+                            <button class="preset-btn preset-block" onclick="setLivePreset('anon_wallet')">Anon
+                                Wallet</button>
+                            <button class="preset-btn preset-allow" onclick="setLivePreset('transfer_email')">💸
+                                Transfer + Email</button>
+                            <button class="preset-btn preset-allow"
+                                onclick="setLivePreset('balance_check')">Analysis</button>
+                            <button class="preset-btn"
+                                style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.35);color:#a855f7;font-weight:700;"
+                                onclick="setLivePreset('drift_attack')">🔴 Drift Attack</button>
                         </div>
                     </div>
 
@@ -765,13 +782,19 @@
                 </div>
                 <div class="diff-view" id="driftDiff"></div>
                 <div style="padding:12px 20px;border-top:0.5px solid var(--bd-1);display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn" style="flex:1;min-width:140px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;font-size:0.75rem;font-weight:600;" onclick="runDriftDetection(0)">
+                    <button class="btn"
+                        style="flex:1;min-width:140px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;font-size:0.75rem;font-weight:600;"
+                        onclick="runDriftDetection(0)">
                         💰 Amount Inflation<br><span style="font-size:0.6rem;opacity:0.7">$5k → $47.5k (+850%)</span>
                     </button>
-                    <button class="btn" style="flex:1;min-width:140px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;font-size:0.75rem;font-weight:600;" onclick="runDriftDetection(1)">
+                    <button class="btn"
+                        style="flex:1;min-width:140px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;font-size:0.75rem;font-weight:600;"
+                        onclick="runDriftDetection(1)">
                         🎯 Recipient Swap<br><span style="font-size:0.6rem;opacity:0.7">vendor → unknown_wallet</span>
                     </button>
-                    <button class="btn" style="flex:1;min-width:140px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);color:#a855f7;font-size:0.75rem;font-weight:600;" onclick="runDriftDetection(2)">
+                    <button class="btn"
+                        style="flex:1;min-width:140px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);color:#a855f7;font-size:0.75rem;font-weight:600;"
+                        onclick="runDriftDetection(2)">
                         ⚡ Action Escalation<br><span style="font-size:0.6rem;opacity:0.7">query → deploy_contract</span>
                     </button>
                 </div>
@@ -780,11 +803,304 @@
         </div>
     </section>
 
+    <!-- --- MULTI-AGENT MESH GOVERNANCE --- -->
+    <section id="mesh" class="full-section">
+        <div class="container">
+            <div class="section-header" style="text-align: center; margin-bottom: 48px;">
+                <span class="section-tag">multi-agent governance</span>
+                <h2 class="section-title">Trust-Weighted Consensus</h2>
+                <p class="section-desc" style="max-width: 640px; margin: 0 auto;">Multiple agents independently reason
+                    about a proposed action. Votes are weighted by trust. Consensus is reached through a quorum, then
+                    hard policy enforcement runs. Multi-signature for AI decisions.</p>
+            </div>
+
+            <!-- Mesh Agent Roster -->
+            <div style="margin-bottom: 32px;">
+                <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Mesh
+                    Agent Roster</h3>
+                <div id="meshAgentRoster"
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                </div>
+            </div>
+
+            <!-- Preset Scenarios -->
+            <div style="margin-bottom: 32px;">
+                <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Decision
+                    Scenarios</h3>
+                <div id="meshPresets" style="display: flex; flex-wrap: wrap; gap: 10px;"></div>
+            </div>
+
+            <!-- Custom Input -->
+            <div class="panel" style="padding: 20px; margin-bottom: 24px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;">
+                    <div>
+                        <label class="form-label" style="font-size: 12px;">Action</label>
+                        <select id="meshAction" class="form-control" style="font-size: 13px; padding: 8px 12px;">
+                            <option value="approve_discount">Approve Discount</option>
+                            <option value="transfer">Transfer Funds</option>
+                            <option value="approve_loan">Approve Loan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label" style="font-size: 12px;">Amount ($)</label>
+                        <input type="number" id="meshAmount" class="form-control" value="300000"
+                            style="font-size: 13px; padding: 8px 12px;">
+                    </div>
+                    <div>
+                        <label class="form-label" style="font-size: 12px;">Discount %</label>
+                        <input type="number" id="meshDiscountPct" class="form-control" value="18"
+                            style="font-size: 13px; padding: 8px 12px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="runMeshDecision()" id="meshRunBtn"
+                        style="padding: 8px 20px; font-size: 13px;">
+                        Run Mesh Decision
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mesh Execution Output -->
+            <div id="meshOutput" style="display: none;">
+                <!-- Agent Reasoning Cards -->
+                <div style="margin-bottom: 24px;">
+                    <h3 style="font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        Agent Reasoning</h3>
+                    <div id="meshAgentCards"
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                    </div>
+                </div>
+
+                <!-- Consensus Visualization -->
+                <div class="panel" style="padding: 20px; margin-bottom: 16px;" id="meshConsensusPanel">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        Trust-Weighted Consensus</h3>
+                    <div id="meshConsensusBar" style="margin-bottom: 12px;"></div>
+                    <div id="meshConsensusResult" style="font-size: 13px; color: var(--text-secondary);"></div>
+                </div>
+
+                <!-- Policy Enforcement -->
+                <div class="panel" style="padding: 20px; margin-bottom: 16px;" id="meshPolicyPanel">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        Policy Enforcement</h3>
+                    <div id="meshPolicyChecks"></div>
+                </div>
+
+                <!-- Trust Updates -->
+                <div class="panel" style="padding: 20px; margin-bottom: 16px;" id="meshTrustPanel">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        Trust Score Updates</h3>
+                    <div id="meshTrustUpdates"></div>
+                </div>
+
+                <!-- Crypto Proof + Final Decision -->
+                <div class="panel" style="padding: 20px; margin-bottom: 16px;" id="meshFinalPanel">
+                    <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-primary);">
+                        Final Decision & Crypto Proof</h3>
+                    <div id="meshFinalDecision"></div>
+                </div>
+            </div>
+
+            <!-- Weight Configuration (collapsible) -->
+            <details style="margin-top: 32px;">
+                <summary
+                    style="font-size: 15px; font-weight: 600; cursor: pointer; color: var(--text-primary); padding: 8px 0;">
+                    Enterprise Weight Configuration</summary>
+                <div class="panel" style="padding: 20px; margin-top: 12px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <label class="form-label" style="font-size: 12px;">Quorum Threshold</label>
+                            <input type="range" id="meshThreshold" min="0.5" max="3.0" step="0.1" value="1.5"
+                                style="width: 100%;"
+                                oninput="document.getElementById('meshThresholdVal').textContent=this.value">
+                            <span id="meshThresholdVal"
+                                style="font-size: 12px; color: var(--text-secondary);">1.5</span>
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 12px;">Auto-Approve Limit ($)</label>
+                            <input type="number" id="meshAutoApprove" class="form-control" value="250000"
+                                style="font-size: 12px; padding: 6px 10px;">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 12px;">Max Discount %</label>
+                            <input type="number" id="meshMaxDiscount" class="form-control" value="25"
+                                style="font-size: 12px; padding: 6px 10px;">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-size: 12px;">Static/Dynamic Blend (alpha)</label>
+                            <input type="range" id="meshBlend" min="0" max="1" step="0.1" value="0.6"
+                                style="width: 100%;"
+                                oninput="document.getElementById('meshBlendVal').textContent=this.value">
+                            <span id="meshBlendVal" style="font-size: 12px; color: var(--text-secondary);">0.6</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="applyMeshWeights()"
+                        style="margin-top: 16px; font-size: 12px; padding: 6px 16px;">Apply Weights</button>
+                    <button class="btn btn-secondary" onclick="resetMeshWeights()"
+                        style="margin-top: 16px; margin-left: 8px; font-size: 12px; padding: 6px 16px;">Reset
+                        Defaults</button>
+                </div>
+            </details>
+        </div>
+    </section>
+    <!-- ─── PRICING ─── -->
+    <section id="pricing" class="section section-alt">
+        <div class="container">
+            <div class="section-header" style="text-align: center;">
+                <span class="section-tag">plans</span>
+                <h2 class="section-title">Pricing</h2>
+                <p class="section-desc" style="max-width: 640px; margin: 0 auto;">Select the governance tier that fits
+                    your enterprise needs.</p>
+            </div>
+
+            <div class="panel" style="overflow-x: auto; padding: 0;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+                    <thead style="background: rgba(16, 185, 129, 0.1); border-bottom: 1px solid var(--bd-1);">
+                        <tr>
+                            <th
+                                style="padding: 16px 20px; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Feature</th>
+                            <th
+                                style="padding: 16px 20px; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Starter ($99/mo)</th>
+                            <th
+                                style="padding: 16px 20px; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Growth ($499/mo)</th>
+                            <th style="padding: 16px 20px; font-weight: 600; color: var(--text-primary);">Enterprise
+                                (Custom)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--bd-1);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                API Requests/month</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                10,000</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                100,000</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">Unlimited</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1); background: rgba(255,255,255,0.02);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Agent Policies</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                3</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Unlimited</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">Unlimited</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Audit Log Retention</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                7 days</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                90 days</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">365 days</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1); background: rgba(255,255,255,0.02);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Support</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Community</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Priority email + chat</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">24/7 + dedicated AM</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Compliance Reports</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                RBI, SEBI, IRDAI, DPDP</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">Custom builder</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1); background: rgba(255,255,255,0.02);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Users</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                1</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Up to 10</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">Unlimited</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Deployment</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Cloud</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-primary); border-right: 1px solid var(--bd-1);">
+                                Cloud</td>
+                            <td style="padding: 12px 20px; color: var(--text-primary);">Cloud / On-prem / VPC</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1); background: rgba(255,255,255,0.02);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                SSO / RBAC / SIEM</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td style="padding: 12px 20px; color: #10b981;">✓</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--bd-1);">
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                Crypto-verified Proofs</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td style="padding: 12px 20px; color: #10b981;">✓ <span
+                                    style="color:var(--text-secondary); font-size: 12px;">with replay</span></td>
+                        </tr>
+                        <tr>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                White-label</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td
+                                style="padding: 12px 20px; color: var(--text-secondary); border-right: 1px solid var(--bd-1);">
+                                —</td>
+                            <td style="padding: 12px 20px; color: #10b981;">✓</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
     <!-- ─── REQUEST DEMO ─── -->
     <section id="request-demo" class="section">
         <div class="container">
             <div class="section-header" style="text-align: center;">
-                <span class="section-tag" style="justify-content: center; display: flex;">contact sales</span>
+                <span class="section-tag">contact sales</span>
                 <h2 class="section-title">Request a Private Demo</h2>
                 <p class="section-desc" style="margin: 0 auto;">Speak with our enterprise solutions team to see
                     PrivateVault in action.</p>
@@ -817,7 +1133,8 @@
         </div>
     </section>
 
-    <!-- ─── FOOTER ─── -->
+
+    <!-- --- FOOTER --- -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
@@ -836,12 +1153,13 @@
                     <h4 class="footer-group-title">Resources</h4>
                     <a href="#live" class="footer-link">Live Console</a>
                     <a href="#demo" class="footer-link">Pipeline Demo</a>
+                    <a href="#mesh" class="footer-link">Multi-Agent</a>
                     <a href="#architecture" class="footer-link">Architecture</a>
                     <a href="#shadow" class="footer-link">Shadow Mode</a>
                 </div>
             </div>
             <div class="footer-bottom">
-                <span>&copy; 2026 PrivateVault.ai &mdash; Built by Galani Protocol</span>
+                <span>&copy; 2026 PrivateVault.ai &mdash; Built by PentaPrime Solutions</span>
             </div>
         </div>
     </footer>
