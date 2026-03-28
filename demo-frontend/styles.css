@@ -62,8 +62,8 @@
     --blue: #2563eb;
     --blue-bg: rgba(37, 99, 235, .08);
     --brand: #2563eb;
-    --terminal-bg: #1a1c1f;
-    --diff-bg: #1a1c1f;
+    --terminal-bg: #ffffff;
+    --diff-bg: #f9f9f7;
 }
 
 /* ─── Icon visibility ─── */
@@ -75,8 +75,17 @@
     display: none;
 }
 
-:root:not([data-theme="light"]) .theme-icon-light {
-    display: none;
+/* ─── Image theme visibility ─── */
+[data-theme="light"] .theme-img-dark {
+    display: none !important;
+}
+
+[data-theme="dark"] .theme-img-light {
+    display: none !important;
+}
+
+:root:not([data-theme="light"]) .theme-img-light {
+    display: none !important;
 }
 
 /* ═══ KEYFRAMES ═══ */

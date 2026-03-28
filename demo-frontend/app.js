@@ -715,39 +715,46 @@ function renderGraph(graphData) {
     /* ── auto-layout if coordinates missing ── */
     const VW = 740, VH = 280;
     const NW = 130, NH = 36;
+    const minColW = NW + 40;
 
     const needsLayout = nodes.every(n => n.x === undefined || n.x === null);
     if (needsLayout) {
         /* Simple left-to-right dagre-style placement */
-        /* Separate agent/meta nodes (main row) from tool nodes (sub row) */
         const mainNodes = nodes.filter(n => n.type !== "tool");
         const subNodes = nodes.filter(n => n.type === "tool");
 
-        const colW = Math.min(160, (VW - 80) / Math.max(mainNodes.length, 1));
+        const colW = Math.max(minColW, (VW - 80) / Math.max(mainNodes.length, 1));
 
         mainNodes.forEach((n, i) => {
-            n.x = 60 + i * colW + colW / 2;
+            n.x = 80 + i * colW;
             n.y = VH / 2 - 40;
         });
 
+        // Track how many tools per parent to offset them
+        const parentToolCounts = {};
         subNodes.forEach((n, i) => {
-            /* Place tool below the agent that calls it */
             const parentEdge = edgeList.find(e => e.to === n.id);
-            const parentNode = parentEdge ? nodeMap[parentEdge.from] : null;
-            n.x = parentNode ? parentNode.x : 60 + i * colW + colW / 2;
-            n.y = VH / 2 + 55;
+            const parentId = parentEdge ? parentEdge.from : "none";
+            
+            if (!parentToolCounts[parentId]) parentToolCounts[parentId] = 0;
+            const offset = (parentToolCounts[parentId]++) * 30;
+
+            const pNode = nodeMap[parentId];
+            n.x = pNode ? (pNode.x + offset) : (80 + i * colW + offset);
+            n.y = VH / 2 + 55 + (offset % 60); // zigzag y slightly if many tools
         });
     }
 
     /* ── viewBox: expand to fit all node coordinates ── */
     const allX = nodes.map(n => n.x);
     const allY = nodes.map(n => n.y);
-    const minX = Math.min(...allX) - NW / 2 - 20;
-    const maxX = Math.max(...allX) + NW / 2 + 20;
-    const minY = Math.min(...allY) - NH / 2 - 30;
-    const maxY = Math.max(...allY) + NH / 2 + 40;
-    const computedW = Math.max(maxX - minX, 500);
-    const computedH = Math.max(maxY - minY, 200);
+    const minX = Math.min(...allX) - NW / 2 - 40;
+    const maxX = Math.max(...allX) + NW / 2 + 40;
+    const minY = Math.min(...allY) - NH / 2 - 40;
+    const maxY = Math.max(...allY) + NH / 2 + 60;
+    const computedW = Math.max(maxX - minX, VW);
+    const computedH = Math.max(maxY - minY, VH);
+    const vb = `${minX} ${minY} ${computedW} ${computedH}`;
 
     /* ── constants ── */
     const TYPE_COLOR = { agent: "#60a5fa", tool: "#fbbf24", policy: "#f87171", meta: "#666562" };
@@ -785,7 +792,7 @@ function renderGraph(graphData) {
     <button class="ig-filter-btn" data-action="replay">replay</button>
   </div>
   <div class="ig-canvas" id="igCanvas">
-    <svg id="igSvg" viewBox="0 0 ${VW} ${VH}" height="280" xmlns="http://www.w3.org/2000/svg">
+    <svg id="igSvg" viewBox="${vb}" height="280" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <marker id="igArrowBlue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 2L8 5L1 8" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/></marker>
         <marker id="igArrowAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 2L8 5L1 8" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/></marker>
@@ -1042,14 +1049,9 @@ function renderGraph(graphData) {
         if (!dragging) return;
         pan.x = panOrigin.x + (e.clientX - dragStart.x);
         pan.y = panOrigin.y + (e.clientY - dragStart.y);
-        root.setAttribute("transform", `translate(${pan.x},${pan.y}) scale(${pan.scale})`);
+        root.setAttribute("transform", `translate(${pan.x},${pan.y})`);
     });
     window.addEventListener("mouseup", () => { dragging = false; });
-    canvas.addEventListener("wheel", e => {
-        e.preventDefault();
-        pan.scale = Math.min(3, Math.max(0.3, pan.scale * (e.deltaY > 0 ? 0.9 : 1.1)));
-        root.setAttribute("transform", `translate(${pan.x},${pan.y}) scale(${pan.scale})`);
-    }, { passive: false });
 
     /* click background to deselect */
     svg.addEventListener("click", () => {

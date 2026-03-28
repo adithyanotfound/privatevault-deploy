@@ -106,6 +106,23 @@
         </div>
     </section>
 
+    <!-- ─── CONSENSUS ARCHITECTURE ─── -->
+    <section class="section section-alt" id="consensus-architecture">
+        <div class="container">
+            <div class="section-header" style="text-align: center;">
+                <span class="section-tag">governance model</span>
+                <h2 class="section-title">Multi-Agent Consensus Architecture</h2>
+                <p class="section-desc" style="max-width: 640px; margin: 0 auto;">Our three-layer governance stack uses trust-weighted consensus to verify every action. Multiple independent agents reason about proposed intents before a final policy enforcement gate.</p>
+            </div>
+            <div style="display: flex; justify-content: center; margin-top: 40px;">
+                <div style="background: var(--bg-1); border: 1px solid var(--bd-1); border-radius: var(--r-lg); padding: 12px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
+                    <img src="assets/private_vault_architecture_dark.png" alt="PrivateVault Architecture (Dark)" class="theme-img-dark" style="max-width: 700px; height: auto; border-radius: 4px; display: block; margin: 0 auto;">
+                    <img src="assets/private_vault_architecture_light.png" alt="PrivateVault Architecture (Light)" class="theme-img-light" style="max-width: 700px; height: auto; border-radius: 4px; display: block; margin: 0 auto;">
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ─── ARCHITECTURE ─── -->
     <section id="architecture" class="section">
         <div class="container">
@@ -436,7 +453,6 @@
                 <div class="panel">
                     <div class="panel-header">
                         <span class="panel-label">agent registry</span>
-                        <button class="btn btn-sm" onclick="registerNewAgent()">+ register</button>
                     </div>
                     <div class="agent-list" id="agentList"></div>
                 </div>
@@ -900,7 +916,7 @@
             </div>
 
             <!-- Weight Configuration (collapsible) -->
-            <details style="margin-top: 32px;">
+            <details open style="margin-top: 32px;">
                 <summary
                     style="font-size: 15px; font-weight: 600; cursor: pointer; color: var(--text-primary); padding: 8px 0;">
                     Enterprise Weight Configuration</summary>
@@ -1115,6 +1131,14 @@
                         <input type="text" name="entry.1789947739" class="form-control" required placeholder="Jane Doe">
                     </div>
                     <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">Company</label>
+                        <input type="text" name="entry.1567801268" class="form-control" required placeholder="Acme Corp">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label class="form-label">Position</label>
+                        <input type="text" name="entry.437998157" class="form-control" required placeholder="CTO / Head of Engineering">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 16px;">
                         <label class="form-label">Work Email</label>
                         <input type="email" name="entry.632226409" class="form-control" required
                             placeholder="jane@company.com">
@@ -1127,6 +1151,9 @@
                     <button type="submit" class="btn btn-primary btn-block"
                         style="padding: 12px; font-size: 14px; justify-content: center;">Request Demo</button>
                 </form>
+                <div style="margin-top: 24px; text-align: center; font-size: 13px; color: var(--tx-3);">
+                    Or directly contact us at <a href="mailto:contact@privatevault.ai" style="color: var(--brand); text-decoration: none; font-weight: 500;">contact@privatevault.ai</a>
+                </div>
                 <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"
                     onload="if(typeof submitted !== 'undefined' && submitted) { showDemoToast(); }"></iframe>
             </div>
