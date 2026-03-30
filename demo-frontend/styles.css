@@ -66,17 +66,20 @@
     --diff-bg: #1a1c1f;
 }
 
-/* ─── Icon visibility ─── */
-[data-theme="light"] .theme-icon-dark {
-    display: none;
+/* ─── Icon and Image visibility ─── */
+[data-theme="light"] .theme-icon-dark,
+[data-theme="light"] .theme-img-dark {
+    display: none !important;
 }
 
-[data-theme="dark"] .theme-icon-light {
-    display: none;
+[data-theme="dark"] .theme-icon-light,
+[data-theme="dark"] .theme-img-light {
+    display: none !important;
 }
 
-:root:not([data-theme="light"]) .theme-icon-light {
-    display: none;
+:root:not([data-theme="light"]) .theme-icon-light,
+:root:not([data-theme="light"]) .theme-img-light {
+    display: none !important;
 }
 
 /* ═══ KEYFRAMES ═══ */
