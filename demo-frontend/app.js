@@ -2370,3 +2370,543 @@ window.showDemoToast = function () {
         window.submitted = false;
     }
 };
+
+/* ===================================================================
+   DECISION CONTEXT GRAPH — Explorer UI
+   All data fetched from real backend endpoints. Nothing hardcoded.
+   =================================================================== */
+
+let cgCurrentFilter = "all";
+let cgGraphData = null;
+
+const CG_TYPE_COLORS = {
+    decision: "#60a5fa",
+    transaction: "#60a5fa",
+    agent: "#22c55e",
+    agent_reasoning: "#22c55e",
+    human: "#2dd4bf",
+    policy: "#f87171",
+    policy_tier: "#f87171",
+    consensus: "#a855f7",
+    outcome: "#fbbf24",
+    entity: "#a855f7",
+};
+
+function cgTypeColor(type) {
+    return CG_TYPE_COLORS[type] || "#666562";
+}
+
+function cgStatusColor(status) {
+    const s = (status || "").toUpperCase();
+    if (s === "ALLOW" || s === "APPROVE") return "var(--green)";
+    if (s === "BLOCK" || s === "REJECT" || s === "DENY") return "var(--red)";
+    if (s === "REVIEW") return "var(--amber)";
+    return "var(--tx-3)";
+}
+
+function cgStatusBg(status) {
+    const s = (status || "").toUpperCase();
+    if (s === "ALLOW" || s === "APPROVE") return "var(--green-bg)";
+    if (s === "BLOCK" || s === "REJECT" || s === "DENY") return "var(--red-bg)";
+    if (s === "REVIEW") return "var(--amber-bg)";
+    return "var(--bg-3)";
+}
+
+/* ─── Load Graph Data ─── */
+window.loadContextGraph = async function () {
+    try {
+        const [graphResp, statsResp] = await Promise.all([
+            fetch(`${VAULT_URL}/api/v1/context_graph/explore`, { signal: AbortSignal.timeout(4000) }),
+            fetch(`${VAULT_URL}/api/v1/context_graph/stats`, { signal: AbortSignal.timeout(4000) }),
+        ]);
+        if (!graphResp.ok || !statsResp.ok) throw new Error("API error");
+        cgGraphData = await graphResp.json();
+        const stats = await statsResp.json();
+        renderCgStats(stats);
+        renderCgGraph(cgGraphData);
+    } catch (e) {
+        console.warn("Context graph load failed:", e);
+        const canvas = $("cgGraphCanvas");
+        if (canvas) {
+            canvas.innerHTML = `<div class="cg-empty">// no graph data yet — run governance checks or mesh decisions first</div>`;
+        }
+    }
+};
+
+/* ─── Render Stats Cards ─── */
+function renderCgStats(stats) {
+    const el = $("cgStats");
+    if (!el) return;
+
+    const items = [
+        { value: stats.total_nodes || 0, label: "total nodes" },
+        { value: stats.total_edges || 0, label: "total edges" },
+        { value: stats.total_decisions || 0, label: "decisions" },
+        { value: stats.override_count || 0, label: "policy overrides" },
+        { value: Object.keys(stats.agent_activity || {}).length, label: "active agents" },
+        { value: stats.snapshots || 0, label: "snapshots" },
+    ];
+
+    el.innerHTML = items.map(item => `
+        <div class="cg-stat-card">
+            <div class="cg-stat-value">${item.value}</div>
+            <div class="cg-stat-label">${item.label}</div>
+        </div>
+    `).join("");
+}
+
+/* ─── Filter Buttons ─── */
+window.setCgFilter = function (filter, btn) {
+    cgCurrentFilter = filter;
+    document.querySelectorAll(".cg-filter-btn").forEach(b => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    if (cgGraphData) renderCgGraph(cgGraphData);
+};
+
+/* ─── Render Interactive SVG Graph ─── */
+function renderCgGraph(data) {
+    const canvas = $("cgGraphCanvas");
+    if (!canvas) return;
+
+    const nodes = (data.nodes || []).filter(n => {
+        if (cgCurrentFilter === "all") return true;
+        if (cgCurrentFilter === "decision") return n.type === "decision" || n.type === "transaction";
+        if (cgCurrentFilter === "agent") return n.type === "agent" || n.type === "agent_reasoning";
+        if (cgCurrentFilter === "policy") return n.type === "policy" || n.type === "policy_tier" || n.type === "consensus";
+        if (cgCurrentFilter === "transaction") return n.type === "transaction";
+        return true;
+    });
+    const edges = data.edges || [];
+
+    const nodeCountEl = $("cgNodeCount");
+    if (nodeCountEl) nodeCountEl.textContent = `${nodes.length} nodes · ${edges.length} edges`;
+
+    if (!nodes.length) {
+        canvas.innerHTML = `<div class="cg-empty">// no graph data yet — run governance checks or mesh decisions first</div>`;
+        return;
+    }
+
+    // Build node ID set for edge filtering
+    const nodeIds = new Set(nodes.map(n => n.id));
+
+    // Auto-layout: cluster by type
+    const VW = Math.max(800, nodes.length * 60);
+    const VH = 360;
+    const typeGroups = {};
+    nodes.forEach(n => {
+        const t = n.type || "other";
+        if (!typeGroups[t]) typeGroups[t] = [];
+        typeGroups[t].push(n);
+    });
+
+    const typeOrder = ["transaction", "decision", "agent", "agent_reasoning", "consensus", "policy", "policy_tier", "outcome", "entity", "human"];
+    const sortedTypes = Object.keys(typeGroups).sort((a, b) => {
+        const ai = typeOrder.indexOf(a);
+        const bi = typeOrder.indexOf(b);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    let xOffset = 60;
+    const nodePositions = {};
+    sortedTypes.forEach(type => {
+        const group = typeGroups[type];
+        const colWidth = Math.max(90, 140);
+        group.forEach((n, i) => {
+            const ySpacing = (VH - 60) / Math.max(group.length, 1);
+            nodePositions[n.id] = {
+                x: xOffset,
+                y: 30 + i * ySpacing + ySpacing / 2,
+            };
+        });
+        xOffset += colWidth;
+    });
+
+    const totalW = xOffset + 40;
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${totalW} ${VH}`);
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", VH);
+    svg.style.minWidth = totalW + "px";
+
+    // Defs for arrowheads
+    const defs = document.createElementNS(svgNS, "defs");
+    ["#60a5fa", "#22c55e", "#f87171", "#fbbf24", "#a855f7", "#666562"].forEach((color, i) => {
+        const marker = document.createElementNS(svgNS, "marker");
+        marker.setAttribute("id", `cgArrow${i}`);
+        marker.setAttribute("viewBox", "0 0 10 10");
+        marker.setAttribute("refX", "9");
+        marker.setAttribute("refY", "5");
+        marker.setAttribute("markerWidth", "5");
+        marker.setAttribute("markerHeight", "5");
+        marker.setAttribute("orient", "auto-start-reverse");
+        const path = document.createElementNS(svgNS, "path");
+        path.setAttribute("d", "M1 2L8 5L1 8");
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", color);
+        path.setAttribute("stroke-width", "1.5");
+        path.setAttribute("stroke-linecap", "round");
+        marker.appendChild(path);
+        defs.appendChild(marker);
+    });
+    svg.appendChild(defs);
+
+    // Draw edges
+    const drawnEdges = edges.filter(e => nodeIds.has(e.from) && nodeIds.has(e.to) && nodePositions[e.from] && nodePositions[e.to]);
+    drawnEdges.forEach((edge, i) => {
+        const from = nodePositions[edge.from];
+        const to = nodePositions[edge.to];
+        if (!from || !to) return;
+
+        const path = document.createElementNS(svgNS, "path");
+        const mx = (from.x + to.x) / 2;
+        const d = `M${from.x},${from.y} C${mx},${from.y} ${mx},${to.y} ${to.x},${to.y}`;
+        path.setAttribute("d", d);
+
+        const isOverride = edge.type === "overrode";
+        const isTemporal = edge.type === "followed_by";
+        path.setAttribute("stroke", isOverride ? "#f87171" : isTemporal ? "#3d4145" : "var(--bd-3)");
+        path.setAttribute("stroke-width", isOverride ? "1.5" : "0.8");
+        path.setAttribute("fill", "none");
+        if (isTemporal) path.setAttribute("stroke-dasharray", "4,3");
+        path.setAttribute("opacity", "0");
+
+        svg.appendChild(path);
+
+        setTimeout(() => {
+            path.style.transition = "opacity .3s ease";
+            path.style.opacity = isOverride ? "0.8" : "0.4";
+        }, 50 + i * 15);
+    });
+
+    // Draw nodes
+    nodes.forEach((node, i) => {
+        const pos = nodePositions[node.id];
+        if (!pos) return;
+
+        const color = cgTypeColor(node.type);
+        const g = document.createElementNS(svgNS, "g");
+        g.setAttribute("class", "cg-graph-node");
+        g.style.opacity = "0";
+        g.style.cursor = "pointer";
+
+        const isDecision = node.type === "decision" || node.type === "transaction";
+        if (isDecision) {
+            const rect = document.createElementNS(svgNS, "rect");
+            rect.setAttribute("x", pos.x - 40);
+            rect.setAttribute("y", pos.y - 14);
+            rect.setAttribute("width", 80);
+            rect.setAttribute("height", 28);
+            rect.setAttribute("rx", 4);
+            rect.setAttribute("fill", "var(--bg-2)");
+            rect.setAttribute("stroke", color);
+            rect.setAttribute("stroke-width", "1.2");
+            g.appendChild(rect);
+        } else {
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("cx", pos.x);
+            circle.setAttribute("cy", pos.y);
+            circle.setAttribute("r", 10);
+            circle.setAttribute("fill", "var(--bg-2)");
+            circle.setAttribute("stroke", color);
+            circle.setAttribute("stroke-width", "1.2");
+            g.appendChild(circle);
+        }
+
+        const text = document.createElementNS(svgNS, "text");
+        text.setAttribute("x", pos.x);
+        text.setAttribute("y", isDecision ? pos.y + 4 : pos.y + 24);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("font-family", "IBM Plex Mono, monospace");
+        text.setAttribute("font-size", isDecision ? "8" : "8");
+        text.setAttribute("fill", isDecision ? color : "var(--tx-3)");
+
+        // Label from real data
+        const data = node.data || {};
+        let label = node.type;
+        if (data.agent_id) label = data.agent_id.replace(/_/g, " ");
+        else if (data.action_id) label = data.action_id;
+        else if (data.transaction_id) label = data.transaction_id.substring(0, 12);
+        else if (data.entity_id) label = data.entity_id;
+        else if (data.name) label = data.name;
+        else if (data.tier) label = data.label || data.tier;
+        else if (data.result) label = data.result;
+        else if (data.decision) label = data.decision;
+
+        if (label.length > 14) label = label.substring(0, 12) + "..";
+        text.textContent = label;
+        g.appendChild(text);
+
+        g.addEventListener("click", () => showCgNodeDetail(node));
+        svg.appendChild(g);
+
+        setTimeout(() => {
+            g.style.transition = "opacity .25s ease";
+            g.style.opacity = "1";
+        }, 80 + i * 30);
+    });
+
+    canvas.innerHTML = "";
+    canvas.appendChild(svg);
+}
+
+/* ─── Node Detail Panel ─── */
+function showCgNodeDetail(node) {
+    const el = $("cgNodeDetail");
+    if (!el) return;
+    el.style.display = "block";
+
+    const data = node.data || {};
+    const color = cgTypeColor(node.type);
+    const typeBg = cgStatusBg("");
+
+    // Build fields from real data
+    const fields = [];
+    for (const [key, val] of Object.entries(data)) {
+        if (val === null || val === undefined || val === "") continue;
+        if (typeof val === "object") continue;  // Skip nested objects
+        fields.push({ label: key.replace(/_/g, " "), value: String(val) });
+    }
+
+    el.innerHTML = `
+        <div class="cg-detail-header">
+            <span class="cg-detail-type" style="background: ${color}22; color: ${color}; border: 0.5px solid ${color}44;">${node.type}</span>
+            <span class="cg-detail-name">${esc(node.id)}</span>
+        </div>
+        <div class="cg-detail-grid">
+            ${fields.map(f => `
+                <div class="cg-detail-field">
+                    <div class="cg-detail-field-label">${esc(f.label)}</div>
+                    <div class="cg-detail-field-value">${esc(f.value)}</div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+/* ─── Query Graph ─── */
+window.runCgQuery = async function () {
+    const nodeType = $("cgQueryType")?.value || "";
+    const status = $("cgQueryStatus")?.value || "";
+    const resultsEl = $("cgQueryResults");
+    if (!resultsEl) return;
+
+    const body = {};
+    if (nodeType) body.node_type = nodeType;
+    if (status) body.status = status;
+    body.limit = 20;
+
+    try {
+        const r = await fetch(`${VAULT_URL}/api/v1/context_graph/query`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(4000),
+        });
+        if (!r.ok) throw new Error("Query failed");
+        const data = await r.json();
+        renderCgQueryResults(data.nodes || [], resultsEl);
+    } catch (e) {
+        resultsEl.innerHTML = `<div class="cg-empty">// query failed or no data available</div>`;
+    }
+};
+
+function renderCgQueryResults(nodes, el) {
+    if (!nodes.length) {
+        el.innerHTML = `<div class="cg-empty">// no results found</div>`;
+        return;
+    }
+
+    el.innerHTML = nodes.map(n => {
+        const data = n.data || {};
+        const status = data.final_decision || data.status || data.decision || data.result || "";
+        const color = cgTypeColor(n.type);
+        const statusCol = cgStatusColor(status);
+        const statusBgCol = cgStatusBg(status);
+
+        let idText = data.action_id || data.transaction_id || data.agent_id || data.entity_id || n.id;
+        if (idText.length > 30) idText = idText.substring(0, 28) + "..";
+
+        return `<div class="cg-result-card" onclick='showCgNodeDetail(${JSON.stringify(n).replace(/'/g, "&#39;")})'>
+            <span class="cg-result-type" style="background: ${color}18; color: ${color}; border: 0.5px solid ${color}33;">${n.type}</span>
+            <span class="cg-result-id">${esc(idText)}</span>
+            ${status ? `<span class="cg-result-status" style="background: ${statusBgCol}; color: ${statusCol};">${status}</span>` : ""}
+        </div>`;
+    }).join("");
+}
+
+/* ─── Precedent Finder ─── */
+window.runCgPrecedents = async function () {
+    const action = $("cgPrecAction")?.value || "";
+    const amount = parseFloat($("cgPrecAmount")?.value) || 0;
+    const el = $("cgPrecedentResults");
+    if (!el) return;
+
+    const params = new URLSearchParams();
+    if (action) params.set("action_type", action);
+    if (amount > 0) {
+        params.set("min_amount", Math.floor(amount * 0.5));
+        params.set("max_amount", Math.ceil(amount * 2));
+    }
+    params.set("limit", "10");
+
+    try {
+        const r = await fetch(`${VAULT_URL}/api/v1/context_graph/precedents?${params}`, {
+            signal: AbortSignal.timeout(4000),
+        });
+        if (!r.ok) throw new Error("Precedent query failed");
+        const data = await r.json();
+        renderCgPrecedents(data, el);
+    } catch (e) {
+        el.innerHTML = `<div class="cg-empty">// no precedents found</div>`;
+    }
+};
+
+function renderCgPrecedents(precedents, el) {
+    if (!precedents || !precedents.length) {
+        el.innerHTML = `<div class="cg-empty">// no matching precedents</div>`;
+        return;
+    }
+
+    el.innerHTML = precedents.map(p => {
+        const data = p.data || {};
+        const confidence = Math.round((p.confidence || 0) * 100);
+        const confColor = confidence >= 70 ? "var(--green)" : confidence >= 40 ? "var(--amber)" : "var(--tx-3)";
+        const confBg = confidence >= 70 ? "var(--green-bg)" : confidence >= 40 ? "var(--amber-bg)" : "var(--bg-3)";
+        const outcomeDecision = p.outcome ? (p.outcome.decision || "") : (data.final_decision || data.status || "");
+        const outcomeColor = cgStatusColor(outcomeDecision);
+
+        return `<div class="cg-prec-card">
+            <div class="cg-prec-header">
+                <span style="color: var(--tx-1); font-weight: 500;">${esc(data.action_type || data.action || p.node_type || "decision")} ${data.amount ? "$" + Number(data.amount).toLocaleString() : ""}</span>
+                <span class="cg-prec-confidence" style="background: ${confBg}; color: ${confColor};">${confidence}% match</span>
+            </div>
+            ${outcomeDecision ? `<div style="font-size:11px;"><span style="color: ${outcomeColor}; font-weight: 600;">${outcomeDecision}</span></div>` : ""}
+            <div class="cg-prec-reasons">${(p.match_reasons || []).join(" · ") || "General match"}</div>
+        </div>`;
+    }).join("");
+}
+
+/* ─── Policy Drift Detection ─── */
+window.loadCgDrift = async function () {
+    const el = $("cgDriftResults");
+    if (!el) return;
+
+    try {
+        const r = await fetch(`${VAULT_URL}/api/v1/context_graph/drift_patterns`, {
+            signal: AbortSignal.timeout(4000),
+        });
+        if (!r.ok) throw new Error("Drift query failed");
+        const data = await r.json();
+        renderCgDrift(data, el);
+    } catch (e) {
+        el.innerHTML = `<div class="cg-empty">// drift analysis failed or no data</div>`;
+    }
+};
+
+function renderCgDrift(patterns, el) {
+    if (!patterns || !patterns.length) {
+        el.innerHTML = `<div class="cg-empty" style="gap: 4px;">
+            <div style="color: var(--green); font-weight: 600;">✓ No policy drift detected</div>
+            <div>All agent decisions align with policy enforcement</div>
+        </div>`;
+        return;
+    }
+
+    el.innerHTML = patterns.map(p => `
+        <div class="cg-drift-card">
+            <div class="cg-drift-header">
+                <span class="cg-drift-pattern">${esc(p.pattern)}</span>
+                <span class="cg-drift-severity ${p.severity}">${p.severity}</span>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 11px; color: var(--tx-2); margin-bottom: 4px;">
+                ${p.occurrence_count} occurrence${p.occurrence_count > 1 ? "s" : ""} detected
+            </div>
+            <div class="cg-drift-recommendation">${esc(p.recommendation)}</div>
+        </div>
+    `).join("");
+}
+
+/* ─── What-If Simulator ─── */
+window.runCgWhatIf = async function () {
+    const maxAmt = parseFloat($("cgWhatIfMaxAmt")?.value) || 250000;
+    const maxPct = parseFloat($("cgWhatIfMaxPct")?.value) || 25;
+    const el = $("cgWhatIfResults");
+    if (!el) return;
+
+    try {
+        const r = await fetch(`${VAULT_URL}/api/v1/context_graph/what_if`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                max_discount_amount: maxAmt,
+                max_discount_percent: maxPct,
+                human_review_limit: 25000,
+            }),
+            signal: AbortSignal.timeout(4000),
+        });
+        if (!r.ok) throw new Error("What-if failed");
+        const data = await r.json();
+        renderCgWhatIf(data, el);
+    } catch (e) {
+        el.innerHTML = `<div class="cg-empty">// what-if analysis failed or no data</div>`;
+    }
+};
+
+function renderCgWhatIf(data, el) {
+    if (!data.results || !data.results.length) {
+        el.innerHTML = `<div class="cg-empty">// no historical decisions to replay</div>`;
+        return;
+    }
+
+    const changedResults = data.results.filter(r => r.changed);
+    const unchangedResults = data.results.filter(r => !r.changed);
+
+    el.innerHTML = `
+        <div class="cg-whatif-summary">
+            <div class="cg-whatif-metric">
+                <div class="cg-whatif-metric-val">${data.total_replayed}</div>
+                <div class="cg-whatif-metric-lbl">replayed</div>
+            </div>
+            <div class="cg-whatif-metric">
+                <div class="cg-whatif-metric-val" style="color: ${data.changed_count > 0 ? 'var(--amber)' : 'var(--green)'}">${data.changed_count}</div>
+                <div class="cg-whatif-metric-lbl">changed</div>
+            </div>
+            <div class="cg-whatif-metric">
+                <div class="cg-whatif-metric-val">${data.change_rate}%</div>
+                <div class="cg-whatif-metric-lbl">impact</div>
+            </div>
+        </div>
+        <div style="max-height: 150px; overflow-y: auto;">
+            ${data.results.slice(0, 15).map(r => `
+                <div class="cg-whatif-row ${r.changed ? 'cg-whatif-changed' : 'cg-whatif-unchanged'}">
+                    <span style="flex-shrink: 0;">${r.changed ? "⚠" : "·"}</span>
+                    <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(r.action_type || "decision")} ${r.amount ? "$" + Number(r.amount).toLocaleString() : ""}</span>
+                    <span style="color: ${cgStatusColor(r.actual_decision)}; font-weight: 600;">${r.actual_decision}</span>
+                    ${r.changed ? `<span>→</span><span style="color: ${cgStatusColor(r.projected_decision)}; font-weight: 600;">${r.projected_decision}</span>` : ""}
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+/* ─── Auto-refresh graph after governance/mesh actions ─── */
+const _origRunGovernanceCheck = window.runGovernanceCheck;
+window.runGovernanceCheck = async function () {
+    await _origRunGovernanceCheck();
+    setTimeout(() => { try { loadContextGraph(); } catch(e) {} }, 500);
+};
+
+const _origRunMeshDecision = window.runMeshDecision;
+if (typeof _origRunMeshDecision === "function") {
+    window.runMeshDecision = async function () {
+        await _origRunMeshDecision();
+        setTimeout(() => { try { loadContextGraph(); } catch(e) {} }, 800);
+    };
+}
+
+/* ─── Load graph on page init ─── */
+document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(() => { try { loadContextGraph(); } catch(e) {} }, 2000);
+});
+
