@@ -37,6 +37,7 @@ class MeshDecisionEngine:
         self.policy_engine = PolicyEngine()
         self.tenant_id = tenant_id
         self._audit_store: dict[str, dict] = {}
+        self.context_graph = None  # Set externally to enable graph emission
 
     def evaluate(self, action_id: str, quorum: DriftAwareQuorum) -> dict:
         """Simple consensus evaluation (used by demo script)."""
@@ -381,6 +382,14 @@ class MeshDecisionEngine:
 
         # Store for audit retrieval
         self._audit_store[action_id] = result
+
+        # Emit to Decision Context Graph (if attached)
+        if self.context_graph:
+            try:
+                self.context_graph.ingest_mesh_decision(result)
+            except Exception as e:
+                print(f"   [GRAPH] Warning: failed to emit to context graph: {e}")
+
         return result
 
     def get_audit(self, action_id: str) -> Optional[dict]:

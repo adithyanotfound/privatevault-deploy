@@ -327,6 +327,12 @@ async def shadow_verify(request: TransactionRequest):
     }
     audit_entries.insert(0, entry)
 
+    # Emit to Decision Context Graph
+    try:
+        context_graph.ingest_audit_entry(entry)
+    except Exception:
+        pass  # Graph emission is non-critical
+
     tier_emoji = {"auto_approve": "✅", "human_review": "⏳", "hard_block": "🚫"}
     print(f"\n🔒 [PrivateVault] shadow_verify called")
     print(f"   Agent: {request.agent_id} | Action: {request.action} | Amount: ${request.amount:,.0f} | Recipient: {request.recipient}")
@@ -378,6 +384,12 @@ async def human_approve(request: HumanApprovalRequest):
         "merkle_hash": result["chain_hash"], "risk_score": review["risk_score"],
         "policy_tier": "human_review_completed", "approver": request.approver_name,
     })
+
+    # Emit human approval to Decision Context Graph
+    try:
+        context_graph.ingest_human_approval(tx_id, result)
+    except Exception:
+        pass
 
     print(f"\n👤 [PrivateVault] Human Approval")
     print(f"   TxID: {tx_id[:12]}... | Decision: {result['human_decision']}")
@@ -442,6 +454,10 @@ from coordination.trust.weight_config import (
     reset_tenant_weights, list_tenants, DEFAULT_WEIGHTS,
 )
 
+# --- DECISION CONTEXT GRAPH ---
+from coordination.graph.context_graph import ContextGraph
+context_graph = ContextGraph()
+
 # Shared instances (persist across requests)
 mesh_trust_registry = TrustRegistry()
 mesh_trust_engine = TrustEngine()
@@ -449,6 +465,7 @@ mesh_decision_engine = MeshDecisionEngine(
     trust_registry=mesh_trust_registry,
     trust_engine=mesh_trust_engine,
 )
+mesh_decision_engine.context_graph = context_graph  # Wire graph to decision engine
 
 # Default mesh agents with trust scores
 DEFAULT_MESH_AGENTS = {
@@ -580,6 +597,90 @@ async def mesh_agents():
             "history": mesh_trust_engine.get_history(agent_id)[-5:],
         })
     return agents
+
+
+# --- DECISION CONTEXT GRAPH API ---
+
+class ContextGraphQueryRequest(BaseModel):
+    node_type: Optional[str] = None
+    action_type: Optional[str] = None
+    entity: Optional[str] = None
+    status: Optional[str] = None
+    agent_id: Optional[str] = None
+    min_amount: Optional[float] = None
+    max_amount: Optional[float] = None
+    time_range: Optional[str] = None
+    limit: int = 50
+
+
+class WhatIfRequest(BaseModel):
+    action_type: Optional[str] = None
+    max_discount_amount: Optional[float] = 250000
+    max_discount_percent: Optional[float] = 25
+    human_review_limit: Optional[float] = 25000
+
+
+@app.get("/api/v1/context_graph/explore")
+async def context_graph_explore():
+    """Get the full context graph for visualization."""
+    return context_graph.get_full_graph()
+
+
+@app.get("/api/v1/context_graph/stats")
+async def context_graph_stats():
+    """Get comprehensive graph statistics."""
+    return context_graph.get_stats()
+
+
+@app.post("/api/v1/context_graph/query")
+async def context_graph_query(request: ContextGraphQueryRequest):
+    """Query the context graph with filters."""
+    filters = {k: v for k, v in request.dict().items() if v is not None}
+    return context_graph.query(filters)
+
+
+@app.get("/api/v1/context_graph/precedents")
+async def context_graph_precedents(
+    action_type: Optional[str] = None,
+    entity: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    max_amount: Optional[float] = None,
+    limit: int = 10,
+):
+    """Find similar past decisions (precedents)."""
+    return context_graph.find_precedents(
+        action_type=action_type,
+        entity=entity,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        limit=limit,
+    )
+
+
+@app.get("/api/v1/context_graph/drift_patterns")
+async def context_graph_drift_patterns():
+    """Detect policy drift patterns in the graph."""
+    return context_graph.detect_policy_drift()
+
+
+@app.get("/api/v1/context_graph/node/{node_id}")
+async def context_graph_node(node_id: str):
+    """Get a single node and its connected subgraph."""
+    return context_graph.get_decision_subgraph(node_id)
+
+
+@app.post("/api/v1/context_graph/what_if")
+async def context_graph_what_if(request: WhatIfRequest):
+    """Replay historical decisions under new policy thresholds."""
+    thresholds = {
+        "max_discount_amount": request.max_discount_amount,
+        "max_discount_percent": request.max_discount_percent,
+        "human_review_limit": request.human_review_limit,
+    }
+    return context_graph.what_if_analysis(
+        action_type=request.action_type,
+        new_threshold=thresholds,
+    )
 
 
 if __name__ == "__main__":
