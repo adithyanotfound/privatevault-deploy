@@ -79,6 +79,31 @@
     display: none;
 }
 
+/* ─── Image visibility ─── */
+.theme-img-dark {
+    display: block;
+}
+
+.theme-img-light {
+    display: none;
+}
+
+[data-theme="dark"] .theme-img-dark {
+    display: block !important;
+}
+
+[data-theme="dark"] .theme-img-light {
+    display: none !important;
+}
+
+[data-theme="light"] .theme-img-dark {
+    display: none !important;
+}
+
+[data-theme="light"] .theme-img-light {
+    display: block !important;
+}
+
 /* ═══ KEYFRAMES ═══ */
 @keyframes barFill {
     from {
